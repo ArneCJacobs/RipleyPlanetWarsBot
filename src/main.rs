@@ -2,7 +2,7 @@ mod data;
 mod state;
 mod algorithms;
 
-use std::{io::{self, BufRead, Write}, thread::sleep, time::{Duration, Instant}};
+use std::io::{self, BufRead};
 
 use algorithms::simple::AlgorithmSimple;
 use data::{Input, Output};
@@ -23,23 +23,16 @@ fn main() {
 
 
     for line in stdin.lock().lines() {
-        let now = Instant::now();
+        //let now = Instant::now();
         let line = line.unwrap();
         eprintln!("=========================================================");
-        // eprintln!("{}", line);
+
         let input: Input = serde_json::from_str(&line).unwrap();
         if state.turn == 0 {
             state = State::new(input);
         } else {
             state.update(input);
         }
-
-        // match state.check_gameover() {
-        //     GameSituation::WON => eprintln!("WE HAVE WON!"),
-        //     GameSituation::LOST => eprintln!("WE HAVE LOST!"),
-        //     _ => {}
-        // }
-
 
         let output = Output {
             moves: algorithm.calculate(&state)
@@ -50,8 +43,9 @@ fn main() {
         ////     //TODO: do things
         ////
         // }
-        println!("{}\n", serde_json::to_string(&output).unwrap());
-        std::io::stdout().flush().unwrap();
+
+        println!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
+        eprintln!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
         state.tick();
     }
 }
