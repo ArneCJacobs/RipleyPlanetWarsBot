@@ -60,6 +60,12 @@ def main():
         text=True
     )
 
+    cmd = subprocess.run(
+        ["git", "push"],
+        capture_output=False,
+        text=True
+    )
+
 
 if __name__ == "__main__":
     main()
