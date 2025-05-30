@@ -1,12 +1,13 @@
+
 use crate::{data::{Move, ME_ID}, state::State};
 
 use super::util::simulate_expeditions;
 
-pub struct Ripley001;
+pub struct Ripley002;
 
-impl Ripley001 {
+impl Ripley002 {
     pub fn new() -> Self {
-        Ripley001 {}
+        Ripley002 {}
     }
 
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
@@ -21,27 +22,36 @@ impl Ripley001 {
                 continue
             }
 
-            let mut nearest_enemy_planet = None;
+            let mut best_enemy_planet = None;
             {
-                for (_, planet_id) in &state.nearest_planets[planet.index] {
-                    let (planet, (o, _)) = &planet_it[*planet_id];
-                    if *o != ME_ID {
-                        nearest_enemy_planet = Some(planet);
-                        break;
+                let mut best_score = None;
+                for (p, (o, fleet)) in &planet_it {
+                    if *o == ME_ID {
+                        continue; // skip our own planets
                     }
+                    let distance: i64 = planet.distance(p).ceil() as i64;
+                    let score: i64 = fleet + distance;
+                    if best_score.is_none() || score < best_score.unwrap() {
+                        best_enemy_planet = Some(p);
+                        best_score = Some(score);
+                    }
+
                 }
             }
 
-            if let Some(enemy_planet) = nearest_enemy_planet {
+            if let Some(enemy_planet) = best_enemy_planet {
                 let (o1, sc1) = planet_it[planet.index].1;
                 let (o2, sc2) = planet_it[enemy_planet.index].1;
                 if o1 != ME_ID || o2 == ME_ID {
+                    continue;
+                }
+                if sc1 < sc2 + 1 {
                     continue; // skip if we can't conquer the enemy planet
                 }
                 moves.push(Move::new(
                     planet.name.clone(),
                     enemy_planet.name.clone(),
-                    i64::min(sc1, sc2 + 1),
+                    sc2 + 1,
                 ));
             }
         }

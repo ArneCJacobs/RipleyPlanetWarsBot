@@ -1,11 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub enum GameSituation {
-    Won,
-    Lost,
-    Ongoing,
-}
-
 pub type PlanetName = String;
 pub type ExpeditionId = u64;
 pub type PlayerId = u8;
@@ -31,6 +25,16 @@ pub struct Planet {
 
 fn default_index() -> usize {
     99999
+}
+
+
+impl Planet {
+    pub fn distance(&self, other: &Planet) -> f32 {
+        (
+            (self.x - other.x).powi(2) +
+            (self.y - other.y).powi(2)
+        ).sqrt()
+    }
 }
 
 

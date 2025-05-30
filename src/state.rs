@@ -3,8 +3,9 @@ use std::collections::{BTreeMap, HashMap};
 
 use bit_set::BitSet;
 
-use crate::{MAX_TURNS, data::{GameSituation, Input, PlayerId, PlanetName, PlanetLocation, PlanetId}};
+use crate::{MAX_TURNS, data::{Input, PlayerId, PlanetName, PlanetLocation, PlanetId}};
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct State {
     pub current_state: Input,
@@ -16,38 +17,18 @@ pub struct State {
     pub nearest_planets: Vec<Vec<(f32, PlanetId)>>,
 }
 
-#[derive(Clone, Debug)]
-pub struct StateCell {
-    // TODO: use rust-smallvec https://crates.io/crates/smallvec
-    deltas: Vec<(PlayerId, i64)>,
-}
-
-
 impl State {
     pub fn tick(&mut self) {
         self.turn += 1;
     }
 
-    #[allow(dead_code)]
-    pub fn check_gameover(&self) -> GameSituation {
-        //if self.current_state.pla
-        GameSituation::Ongoing 
-    } 
-
     pub fn new(mut input: Input) -> Self {
-        let mut entry = vec![];
         let mut planet_map = HashMap::new();
         let mut planet_names = vec![];
         let mut planet_locations: Vec<PlanetLocation> = vec![];
         let mut nearest_planets = Vec::new();
 
         for (index, planet) in input.planets.iter_mut().enumerate() {
-            entry.push(
-                StateCell {
-                    deltas: vec![],
-                }
-            );
-
             planet_map.insert(planet.name.clone(), index);
             planet_names.push(planet.name.clone());
             planet_locations.push(planet.into());
@@ -71,12 +52,6 @@ impl State {
             nearest_planets.push(distances);
         }
 
-
-
-        let mut state_vec = vec![];
-        for _ in 0..MAX_TURNS {
-            state_vec.push(entry.clone());
-        }
         State {
             nearest_planets,
             planet_names,
