@@ -28,7 +28,7 @@ def main():
     # commit the changes to CHANGELOG 
     cmd = subprocess.run(
         ["git", "add", "CHANGELOG.md"],
-        capture_output=True,
+        capture_output=False,
         text=True
     )
     if cmd.returncode != 0:
@@ -37,7 +37,7 @@ def main():
 
     cmd = subprocess.run(
         ["git", "commit", "-m", f"Update CHANGELOG for version {tag}"],
-        capture_output=True,
+        capture_output=False,
         text=True
     )
     if cmd.returncode != 0:
@@ -46,7 +46,7 @@ def main():
 
     cmd = subprocess.run(
         ["git", "tag", "-a", tag, "-m", message],
-        capture_output=True,
+        capture_output=False,
         text=True
     )
     if cmd.returncode != 0:
@@ -56,7 +56,7 @@ def main():
     # push the changes to remote 
     cmd = subprocess.run(
         ["git", "push", "--tags"],
-        capture_output=True,
+        capture_output=False,
         text=True
     )
 
