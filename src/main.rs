@@ -2,7 +2,7 @@ mod data;
 mod state;
 mod algorithms;
 
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 
 use data::{Input, Output};
 use state::State;
@@ -24,8 +24,10 @@ fn main() {
 
     for line in stdin.lock().lines() {
         //let now = Instant::now();
+
         let line = line.unwrap();
-        eprintln!("=========================================================");
+        //eprintln!("{}", line);
+        //eprintln!("=========================================================");
 
         let input: Input = serde_json::from_str(&line).unwrap();
         if state.turn == 0 {
@@ -45,6 +47,7 @@ fn main() {
         // }
 
         println!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
+        io::stdout().flush().unwrap();
         //eprintln!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
         state.tick();
     }

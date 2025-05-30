@@ -8,6 +8,7 @@ pub struct AlgorithmSimple {
 
 impl AlgorithmSimple {
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
+        let mut moves = vec![];
         for planet in &state.current_state.planets {
             if planet.owner != Some(ME_ID) {
                 continue
@@ -24,14 +25,14 @@ impl AlgorithmSimple {
 
             if let Some(enemy_planet) = nearest_enemy_planet {
                 if planet.ship_count > 7 {
-                    return vec![Move::new(
+                    moves.push(Move::new(
                         planet.name.clone(),
                         enemy_planet.name.clone(),
                         5,
-                    )];
+                    ));
                 }
             }
         }
-        vec![]
+        moves
     }
 }

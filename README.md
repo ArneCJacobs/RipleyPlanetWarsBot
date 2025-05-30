@@ -7,3 +7,5 @@ https://planetwars.zeus.gent/matches?before=2025-05-18T15%3A24%3A04.761857
 
 
 https://mattermost.zeus.gent/zeus/channels/planetwars
+
+planetwars-client --grpc-server-url  http://planetwars.zeus.gent:7000 ripleybot.toml simplebot
