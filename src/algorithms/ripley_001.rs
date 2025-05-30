@@ -1,10 +1,10 @@
-use crate::{data::{Expedition, Move, Planet, PlayerId}, state::State};
+use crate::{data::{Expedition, Move, Planet, PlayerId, ME_ID}, state::State};
 
 pub struct Ripley001;
 
 
 fn simulate_expeditions(
-    expeditions: &mut [Expedition],
+    expeditions: &[Expedition],
     planet: &Planet,
 ) -> (PlayerId, i64) {
     let mut relevant_expiditions: Vec<_> = expeditions.iter()
@@ -47,8 +47,36 @@ impl Ripley001 {
     }
 
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
-        // Implement the Ripley 001 algorithm logic here
-        // This is a placeholder implementation
-        vec![]
+        let mut moves = vec![];
+        for planet in &state.current_state.planets {
+            if planet.owner != Some(ME_ID) {
+                continue
+            }
+
+            let mut nearest_enemy_planet = None;
+            {
+                for (_, planet_id) in &state.nearest_planets[planet.index] {
+                    let planet = &state.current_state.planets[*planet_id];
+                    if planet.owner != Some(ME_ID) {
+                        nearest_enemy_planet = Some(planet);
+                        break;
+                    }
+                }
+            }
+
+            if let Some(enemy_planet) = nearest_enemy_planet {
+                let (o1, sc1) = simulate_expeditions(&state.current_state.expeditions, planet);
+                let (o2, sc2) = simulate_expeditions(&state.current_state.expeditions, enemy_planet);
+                if o1 != ME_ID || o2 == ME_ID {
+                    continue; // skip if we can't conquer the enemy planet
+                }
+                moves.push(Move::new(
+                    planet.name.clone(),
+                    enemy_planet.name.clone(),
+                    i64::min(sc1, sc2 + 1),
+                ));
+            }
+        }
+        moves
     }
 }

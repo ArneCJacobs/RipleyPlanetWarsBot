@@ -18,8 +18,8 @@ fn main() {
     let stdin = io::stdin();
     let mut state = State::default();
     //let mut algorithm = AlgorithmSimple::default();
-    //let mut algorithm = algorithms::ripley_001::Ripley001::new();
-    let mut algorithm = algorithms::simple::AlgorithmSimple::default();
+    let mut algorithm = algorithms::ripley_001::Ripley001::new();
+    //let mut algorithm = algorithms::simple::AlgorithmSimple::default();
 
 
     for line in stdin.lock().lines() {
