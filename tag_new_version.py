@@ -16,7 +16,7 @@ def main():
         capture_output=True,
         text=True
     )
-    if "nothing to commit, working tree clean" not in cmd.stdout.strip():
+    if cmd.stdout.strip():
         print("Error: There are uncommitted changes in the repository.")
         return
 
