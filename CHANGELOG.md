@@ -1,1 +1,2 @@
 - [2.0.0]:	use tagging system
+- [3.0.0]:	use tagging system
