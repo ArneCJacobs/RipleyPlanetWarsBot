@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     data::{Expedition, Move, Planet, PlayerId, ME_ID},
     state::State,
@@ -15,9 +17,9 @@ pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition]
     let owner = planet.owner.unwrap_or(0);
     let mut ship_count = 0;
     let mut last_simulated_turn = 0;
-    eprintln!("{}", planet.name);
-    eprintln!("T\tS\tSn");
-    eprintln!("{}\t{}\t{}", last_simulated_turn, ship_count, ship_count_required_to_survive);
+    //eprintln!("{}", planet.name);
+    //eprintln!("T\tS\tSn");
+    //eprintln!("{}\t{}\t{}", last_simulated_turn, ship_count, ship_count_required_to_survive);
 
     for expedition in relevant_expiditions {
         // account for growth
@@ -34,7 +36,7 @@ pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition]
             ship_count -= expedition.ship_count;
         }
         last_simulated_turn = expedition.turns_remaining;
-        eprintln!("{}\t{}\t{}", last_simulated_turn, ship_count, ship_count_required_to_survive);
+        //eprintln!("{}\t{}\t{}", last_simulated_turn, ship_count, ship_count_required_to_survive);
     }
 
     ship_count_required_to_survive
@@ -75,12 +77,22 @@ pub fn simulate_expeditions(expeditions: &[Expedition], planet: &Planet) -> (Pla
     (owner, ship_count)
 }
 
-pub struct Ripley;
+struct Scores {
+    ship_count: i64,
+    projected_ship_count: i64,
+    projected_owner: PlayerId,
+    ships_needed_to_survive: i64,
+}
+pub struct Ripley {
+}
+
+// score are better the lower they are
+const DEFENCE_FACTOR: f32 = 3.0;
+const NEUTRAL_FACTOR: f32 = 10.0;
+const OFFENCE_FACTOR: f32 = 1.0;
 
 impl Ripley {
-    pub fn new() -> Self {
-        Ripley {}
-    }
+    pub fn new() -> Self {Ripley { }}
 
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
         let mut moves = vec![];
@@ -89,58 +101,77 @@ impl Ripley {
             .current_state
             .planets
             .iter()
-            .map(|p| (p, simulate_expeditions(&state.current_state.expeditions, p)))
+            .map(|p| {
+                let (owner_sim, ship_count) = simulate_expeditions(&state.current_state.expeditions, p);
+                let ships_needed_to_survive = simulate_expeditions_required_ships_to_survive(&state.current_state.expeditions, p);
+                (p, Scores {
+                    ship_count,
+                    projected_ship_count: ship_count, // Placeholder, not used in this algorithm
+                    projected_owner: owner_sim,
+                    ships_needed_to_survive,
+                })
+            })
             .collect::<Vec<_>>();
 
-        for &(planet, (owner_sim, _)) in &planet_it {
-            if owner_sim != ME_ID {
+        let mut scores = vec![];
+        for planet in &state.current_state.planets {
+            let planet_scores = &planet_it[planet.index].1;
+            // don't send ships from our own planets if we don't have enough to survive
+            if (planet.owner == Some(ME_ID) && planet.ship_count < planet_scores.ships_needed_to_survive)  
+                || planet.owner != Some(ME_ID)
+            {
                 continue;
             }
+            for other_planet in &state.current_state.planets {
+                if planet.name == other_planet.name {
+                    continue; // skip self
+                }
 
-            let mut best_enemy_planet = None;
-            {
-                let mut best_score = None;
-                for (p, (o, fleet)) in &planet_it {
-                    if *o == ME_ID {
-                        continue; // skip our own planets
-                    }
-                    let distance: i64 = planet.distance(p).ceil() as i64;
-                    let score: i64 = fleet + distance;
-                    if best_score.is_none() || score < best_score.unwrap() {
-                        best_enemy_planet = Some(p);
-                        best_score = Some(score);
-                    }
+                let distance = planet.distance(other_planet).ceil() as i64;
+                //if 
+                let mut score = None; 
+                let other_planet_scores = &planet_it[other_planet.index].1;
+
+                if other_planet.owner == Some(ME_ID) && 
+                    other_planet.ship_count < other_planet_scores.ships_needed_to_survive {
+                    score = Some((distance + other_planet_scores.ships_needed_to_survive) as f32 * DEFENCE_FACTOR);
+                } else if other_planet_scores.projected_owner != ME_ID {
+                    let factor = if other_planet.owner.is_none() {
+                        NEUTRAL_FACTOR
+                    } else {
+                        OFFENCE_FACTOR
+                    };
+                    score = Some((distance + other_planet_scores.projected_ship_count) as f32 * factor);
+                } 
+                if let Some(score) = score {
+                    scores.push((score, planet, other_planet));
                 }
             }
+        }
 
-            if let Some(enemy_planet) = best_enemy_planet {
-                let sc = planet.ship_count;
-                //let (o1, _) = planet_it[planet.index].1;
-                let (o2, sc_other) = planet_it[enemy_planet.index].1;
-                let sc_needed = simulate_expeditions_required_ships_to_survive(
-                    &state.current_state.expeditions,
-                    planet,
-                );
-                if o2 == ME_ID {
-                    continue;
-                }
-                eprintln!("sc: {:?}, scn: {:?}", sc, sc_needed);
-                if sc_needed >= sc {
-                    continue; // we need more ships to survive the current situtation, don't send
-                    // any out 
-                }
-                eprintln!(
-                    "Sending {} ships from {} to {}",
-                    sc - sc_needed,
-                    planet.name,
-                    enemy_planet.name
-                );
-                moves.push(Move::new(
-                    planet.name.clone(),
-                    enemy_planet.name.clone(),
-                    i64::min(sc - sc_needed, sc_other+1),
-                ));
+        // Sort scores by the first element (the score) in ascending order
+        scores.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+
+        let mut planets_seen = HashSet::new();
+
+        for (_, planet, other_planet) in scores {
+            if planets_seen.contains(&planet.index) {
+                continue; // skip if we already processed this planet
             }
+            planets_seen.insert(planet.index);
+
+            let ship_count = planet.ship_count;
+            let ships_needed_to_survive = planet_it[planet.index].1.ships_needed_to_survive;
+            if ship_count < ships_needed_to_survive {
+                continue; // skip if we don't have enough ships to survive
+            }
+            let move_ship_count = ship_count - ships_needed_to_survive;
+            moves.push(Move {
+                origin: planet.name.clone(),
+                destination: other_planet.name.clone(),
+                ship_count: move_ship_count,
+            });
         }
         moves
     }

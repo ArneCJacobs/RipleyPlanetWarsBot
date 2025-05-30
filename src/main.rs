@@ -31,7 +31,7 @@ fn main() {
         //eprintln!("Input: {}", line);
 
         let input: Input = serde_json::from_str(&line).unwrap();
-        eprintln!("Input: {:?}", input);
+        //eprintln!("Input: {:?}", input);
         if state.turn == 0 {
             state = State::new(input);
         } else {
