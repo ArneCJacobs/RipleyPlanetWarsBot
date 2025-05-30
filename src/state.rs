@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bit_set::BitSet;
 
-use crate::data::{Input, PlanetId, PlanetLocation, PlanetName};
+use crate::data::{Input,PlanetName};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
@@ -24,13 +24,11 @@ impl State {
     pub fn new(mut input: Input) -> Self {
         let mut planet_map = HashMap::new();
         let mut planet_names = vec![];
-        let mut planet_locations: Vec<PlanetLocation> = vec![];
         //let mut nearest_planets = Vec::new();
 
         for (index, planet) in input.planets.iter_mut().enumerate() {
             planet_map.insert(planet.name.clone(), index);
             planet_names.push(planet.name.clone());
-            planet_locations.push(planet.into());
             planet.index = index;
         }
 

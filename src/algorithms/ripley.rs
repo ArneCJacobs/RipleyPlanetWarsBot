@@ -13,7 +13,7 @@ pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition]
 
     let mut ship_count_required_to_survive = 0;
     let owner = planet.owner.unwrap_or(0);
-    let mut ship_count = planet.ship_count;
+    let mut ship_count = 1;
     let mut last_simulated_turn = 0;
 
     for expedition in relevant_expiditions {
@@ -110,7 +110,7 @@ impl Ripley {
             }
 
             if let Some(enemy_planet) = best_enemy_planet {
-                let sc = planet.ship_count - 1;
+                let sc = planet.ship_count;
                 //let (o1, _) = planet_it[planet.index].1;
                 let (o2, _) = planet_it[enemy_planet.index].1;
                 let sc_needed = simulate_expeditions_required_ships_to_survive(
