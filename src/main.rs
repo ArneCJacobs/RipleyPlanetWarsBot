@@ -4,7 +4,6 @@ mod algorithms;
 
 use std::io::{self, BufRead};
 
-use algorithms::simple::AlgorithmSimple;
 use data::{Input, Output};
 use state::State;
 
@@ -18,8 +17,9 @@ fn main() {
 
     let stdin = io::stdin();
     let mut state = State::default();
-    let mut algorithm = AlgorithmSimple::default();
-    // let mut algorithm = SimpleAlrorithm {};
+    //let mut algorithm = AlgorithmSimple::default();
+    //let mut algorithm = algorithms::ripley_001::Ripley001::new();
+    let mut algorithm = algorithms::simple::AlgorithmSimple::default();
 
 
     for line in stdin.lock().lines() {
@@ -45,7 +45,7 @@ fn main() {
         // }
 
         println!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
-        eprintln!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
+        //eprintln!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
         state.tick();
     }
 }

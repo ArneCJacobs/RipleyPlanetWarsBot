@@ -6,7 +6,7 @@ pub struct AlgorithmSimple {
 
 }
 
-impl AlgorithmSimple{
+impl AlgorithmSimple {
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
         for planet in &state.current_state.planets {
             if planet.owner != Some(ME_ID) {
