@@ -26,9 +26,12 @@ fn main() {
 
         let line = line.unwrap();
         //eprintln!("{}", line);
-        //eprintln!("=========================================================");
+        eprintln!("=========================================================");
+        eprintln!("Turn: {}", state.turn);
+        //eprintln!("Input: {}", line);
 
         let input: Input = serde_json::from_str(&line).unwrap();
+        eprintln!("Input: {:?}", input);
         if state.turn == 0 {
             state = State::new(input);
         } else {
