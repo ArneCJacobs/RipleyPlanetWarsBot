@@ -16,9 +16,33 @@ def main():
         capture_output=True,
         text=True
     )
-    if "Untracked files" in cmd.stdout.strip():
+    if "nothing to commit, working tree clean" not in cmd.stdout.strip():
         print("Error: There are uncommitted changes in the repository.")
         return
+
+    # append to CHANGELOG.md 
+    with open("CHANGELOG.md", "a") as changelog:
+        changelog.write(f"- [{tag}]:\t{message}\n")
+
+
+    # commit the changes to CHANGELOG 
+    cmd = subprocess.run(
+        ["git", "add", "CHANGELOG.md"],
+        capture_output=True,
+        text=True
+    )
+    if cmd.returncode != 0:
+        print(f"Error adding CHANGELOG.md: {cmd.stderr.strip()}")
+        return 
+
+    cmd = subprocess.run(
+        ["git", "commit", "-m", f"Update CHANGELOG for version {tag}"],
+        capture_output=True,
+        text=True
+    )
+    if cmd.returncode != 0:
+        print(f"Error committing changes: {cmd.stderr.strip()}")
+        return 
 
     cmd = subprocess.run(
         ["git", "tag", "-a", tag, "-m", message],
@@ -29,10 +53,16 @@ def main():
         print(f"Error tagging version: {cmd.stderr.strip()}")
         return 
 
-    # append to CHANGELOG.md 
-    with open("CHANGELOG.md", "a") as changelog:
-        changelog.write(f"- [{tag}]:\t{message}\n")
+    # push the changes to remote 
+    cmd = subprocess.run(
+        ["git", "push", "--tags"],
+        capture_output=True,
+        text=True
+    )
 
+
+if __name__ == "__main__":
+    main()
 
 
 
