@@ -13,8 +13,11 @@ pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition]
 
     let mut ship_count_required_to_survive = 0;
     let owner = planet.owner.unwrap_or(0);
-    let mut ship_count = 1;
+    let mut ship_count = 0;
     let mut last_simulated_turn = 0;
+    eprintln!("{}", planet.name);
+    eprintln!("T\tS\tSn");
+    eprintln!("{}\t{}\t{}", last_simulated_turn, ship_count, ship_count_required_to_survive);
 
     for expedition in relevant_expiditions {
         // account for growth
@@ -31,6 +34,7 @@ pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition]
             ship_count -= expedition.ship_count;
         }
         last_simulated_turn = expedition.turns_remaining;
+        eprintln!("{}\t{}\t{}", last_simulated_turn, ship_count, ship_count_required_to_survive);
     }
 
     ship_count_required_to_survive
@@ -115,7 +119,7 @@ impl Ripley {
                 let (o2, sc_other) = planet_it[enemy_planet.index].1;
                 let sc_needed = simulate_expeditions_required_ships_to_survive(
                     &state.current_state.expeditions,
-                    enemy_planet,
+                    planet,
                 );
                 if o2 == ME_ID {
                     continue;
