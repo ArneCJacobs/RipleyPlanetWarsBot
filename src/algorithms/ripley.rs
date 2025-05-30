@@ -112,7 +112,7 @@ impl Ripley {
             if let Some(enemy_planet) = best_enemy_planet {
                 let sc = planet.ship_count;
                 //let (o1, _) = planet_it[planet.index].1;
-                let (o2, _) = planet_it[enemy_planet.index].1;
+                let (o2, sc_other) = planet_it[enemy_planet.index].1;
                 let sc_needed = simulate_expeditions_required_ships_to_survive(
                     &state.current_state.expeditions,
                     enemy_planet,
@@ -134,7 +134,7 @@ impl Ripley {
                 moves.push(Move::new(
                     planet.name.clone(),
                     enemy_planet.name.clone(),
-                    sc - sc_needed,
+                    i64::min(sc - sc_needed, sc_other+1),
                 ));
             }
         }
