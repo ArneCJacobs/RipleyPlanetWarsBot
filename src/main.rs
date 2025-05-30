@@ -1,12 +1,13 @@
+mod algorithms;
 mod data;
 mod state;
-mod algorithms;
 
 use std::io::{self, BufRead, Write};
 
 use data::{Input, Output};
 use state::State;
 
+#[allow(dead_code)]
 const MAX_TURNS: u64 = 500;
 #[allow(dead_code)]
 const HARD_MAX_DURATION: u64 = 1000;
@@ -14,13 +15,11 @@ const HARD_MAX_DURATION: u64 = 1000;
 const MAX_DURATION: u64 = 800;
 
 fn main() {
-
     let stdin = io::stdin();
     let mut state = State::default();
     //let mut algorithm = AlgorithmSimple::default();
-    let mut algorithm = algorithms::ripley_002::Ripley002::new();
+    let mut algorithm = algorithms::ripley::Ripley::new();
     //let mut algorithm = algorithms::simple::AlgorithmSimple::default();
-
 
     for line in stdin.lock().lines() {
         //let now = Instant::now();
@@ -37,7 +36,7 @@ fn main() {
         }
 
         let output = Output {
-            moves: algorithm.calculate(&state)
+            moves: algorithm.calculate(&state),
         };
 
         // while now.elapsed() < Duration::from_millis(MAX_DURATION) {
@@ -46,7 +45,10 @@ fn main() {
         ////
         // }
 
-        println!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
+        println!(
+            "{}",
+            serde_json::to_string(&output).expect("Could not serialize output")
+        );
         io::stdout().flush().unwrap();
         //eprintln!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
         state.tick();

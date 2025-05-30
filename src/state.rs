@@ -1,15 +1,17 @@
-
 use std::collections::{BTreeMap, HashMap};
 
 use bit_set::BitSet;
 
-use crate::{MAX_TURNS, data::{Input, PlayerId, PlanetName, PlanetLocation, PlanetId}};
+use crate::{
+    data::{Input, PlanetId, PlanetLocation, PlanetName, PlayerId},
+    MAX_TURNS,
+};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct State {
     pub current_state: Input,
-    pub saved_expeditions: BitSet, 
+    pub saved_expeditions: BitSet,
     pub planet_map: HashMap<PlanetName, usize>,
     pub planet_names: Vec<PlanetName>,
     pub turn: i64,
@@ -33,7 +35,6 @@ impl State {
             planet_names.push(planet.name.clone());
             planet_locations.push(planet.into());
             planet.index = index;
-
         }
 
         for planet_current in &input.planets {
@@ -66,7 +67,7 @@ impl State {
         for planet in &mut input.planets {
             planet.index = *self.planet_map.get(&planet.name).unwrap();
         }
-        
+
         self.current_state = input;
     }
 }

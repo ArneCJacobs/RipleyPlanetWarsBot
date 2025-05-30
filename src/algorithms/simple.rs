@@ -1,17 +1,18 @@
-use crate::{data::{Move, ME_ID}, state::State};
-
+use crate::{
+    data::{Move, ME_ID},
+    state::State,
+};
 
 #[derive(Default)]
-pub struct AlgorithmSimple {
+pub struct AlgorithmSimple {}
 
-}
-
+#[allow(dead_code)]
 impl AlgorithmSimple {
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
         let mut moves = vec![];
         for planet in &state.current_state.planets {
             if planet.owner != Some(ME_ID) {
-                continue
+                continue;
             }
 
             let mut nearest_enemy_planet = None;
@@ -25,11 +26,7 @@ impl AlgorithmSimple {
 
             if let Some(enemy_planet) = nearest_enemy_planet {
                 if planet.ship_count > 7 {
-                    moves.push(Move::new(
-                        planet.name.clone(),
-                        enemy_planet.name.clone(),
-                        5,
-                    ));
+                    moves.push(Move::new(planet.name.clone(), enemy_planet.name.clone(), 5));
                 }
             }
         }

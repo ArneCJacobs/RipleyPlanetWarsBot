@@ -1,8 +1,8 @@
 // https://github.com/Robbe7730/anna/blob/master/src/main.rs
-use std::io::{self, BufRead};
-use serde::{Serialize, Deserialize};
 use itertools::iproduct;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::io::{self, BufRead};
 
 // ----- INPUT -----
 
@@ -37,7 +37,7 @@ struct GameState {
 struct Move {
     origin: String,
     destination: String,
-    ship_count: usize
+    ship_count: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -54,10 +54,11 @@ fn distance_between_planets(planet1: &Planet, planet2: &Planet) -> f64 {
 }
 
 fn simulate_arrivals(planet: &Planet, gamestate: &GameState) -> (usize, usize) {
-    let mut relevant_expeditions = gamestate.expeditions
-                                        .iter()
-                                        .filter(|x| x.destination == planet.name)
-                                        .collect::<Vec<&Expedition>>();
+    let mut relevant_expeditions = gamestate
+        .expeditions
+        .iter()
+        .filter(|x| x.destination == planet.name)
+        .collect::<Vec<&Expedition>>();
     relevant_expeditions.sort_by_key(|x| x.turns_remaining);
     let mut owner = planet.owner.unwrap_or(0);
     let mut ship_count = planet.ship_count;
@@ -86,12 +87,12 @@ fn simulate_arrivals(planet: &Planet, gamestate: &GameState) -> (usize, usize) {
 
 fn score(source: &Planet, dest: &Planet, gamestate: &GameState) -> (usize, usize) {
     let (owner, ship_count) = simulate_arrivals(dest, gamestate);
-    if (ship_count+1) >= source.ship_count || owner == 1 {
+    if (ship_count + 1) >= source.ship_count || owner == 1 {
         (0, 0)
     } else {
         (
-            ship_count+1,
-            distance_between_planets(source, dest).ceil() as usize * (ship_count+1)
+            ship_count + 1,
+            distance_between_planets(source, dest).ceil() as usize * (ship_count + 1),
         )
     }
 }
@@ -99,11 +100,13 @@ fn score(source: &Planet, dest: &Planet, gamestate: &GameState) -> (usize, usize
 // ----- NEXT MOVE -----
 
 fn next_move(state: &GameState) -> Turn {
-    let my_planets: Vec<&Planet> = state.planets
+    let my_planets: Vec<&Planet> = state
+        .planets
         .iter()
         .filter(|x| x.owner.unwrap_or(0) == 1)
         .collect();
-    let other_planets: Vec<&Planet> = state.planets
+    let other_planets: Vec<&Planet> = state
+        .planets
         .iter()
         .filter(|x| x.owner.unwrap_or(0) != 1)
         .collect();
@@ -114,9 +117,9 @@ fn next_move(state: &GameState) -> Turn {
         let mut moves = vec![];
 
         let mut best_move = iproduct!(my_planets.iter(), other_planets.iter())
-            .map(|(s,d)| (s, d, score(s, d, state)))
-            .filter(|(_,_,(_,sc))| *sc != 0)
-            .min_by_key(|x| (*x).2.1);
+            .map(|(s, d)| (s, d, score(s, d, state)))
+            .filter(|(_, _, (_, sc))| *sc != 0)
+            .min_by_key(|x| (*x).2 .1);
 
         let mut used_planets: HashSet<String> = HashSet::new();
 
@@ -130,11 +133,14 @@ fn next_move(state: &GameState) -> Turn {
             used_planets.insert(source.name.to_string());
 
             best_move = iproduct!(
-                my_planets.iter().filter(|x| !used_planets.contains(&x.name)),
+                my_planets
+                    .iter()
+                    .filter(|x| !used_planets.contains(&x.name)),
                 other_planets.iter()
-            ).map(|(s,d)| (s, d, score(s, d, state)))
-             .filter(|(_,_,(_, sc))| *sc != 0)
-             .min_by_key(|x| (*x).2);
+            )
+            .map(|(s, d)| (s, d, score(s, d, state)))
+            .filter(|(_, _, (_, sc))| *sc != 0)
+            .min_by_key(|x| (*x).2);
         }
         Turn { moves: moves }
     }
@@ -145,10 +151,17 @@ fn next_move(state: &GameState) -> Turn {
 fn main() {
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
-        let state: GameState = serde_json::from_str(line.expect("Could not deserialize").as_str()).unwrap();
+        let state: GameState =
+            serde_json::from_str(line.expect("Could not deserialize").as_str()).unwrap();
         let turn: Turn = next_move(&state);
-        eprintln!("{}", serde_json::to_string(&turn).expect("Could not serialize"));
-        println!("{}", serde_json::to_string(&turn).expect("Could not serialize"));
+        eprintln!(
+            "{}",
+            serde_json::to_string(&turn).expect("Could not serialize")
+        );
+        println!(
+            "{}",
+            serde_json::to_string(&turn).expect("Could not serialize")
+        );
     }
 }
 
@@ -157,33 +170,33 @@ fn main() {
 #[test]
 fn test_simulate_arrivals() {
     let leegistan = Planet {
-                name: "Planeet Leegistan".to_string(),
-                owner: Some(1),
-                ship_count: 0,
-                x: 1.0,
-                y: 1.0
-            };
+        name: "Planeet Leegistan".to_string(),
+        owner: Some(1),
+        ship_count: 0,
+        x: 1.0,
+        y: 1.0,
+    };
     let neemmijover = Planet {
-                name: "Planeet Neemmijover".to_string(),
-                owner: None,
-                ship_count: 1,
-                x: 1.0,
-                y: -1.0
-            };
+        name: "Planeet Neemmijover".to_string(),
+        owner: None,
+        ship_count: 1,
+        x: 1.0,
+        y: -1.0,
+    };
     let swaparoo = Planet {
-                name: "Planeet Swaparoo".to_string(),
-                owner: None,
-                ship_count: 1,
-                x: -1.0,
-                y: 1.0
-            };
+        name: "Planeet Swaparoo".to_string(),
+        owner: None,
+        ship_count: 1,
+        x: -1.0,
+        y: 1.0,
+    };
     let reinforcement = Planet {
-                name: "Planeet Reinforcement".to_string(),
-                owner: Some(1),
-                ship_count: 1,
-                x: -1.0,
-                y: -1.0
-            };
+        name: "Planeet Reinforcement".to_string(),
+        owner: Some(1),
+        ship_count: 1,
+        x: -1.0,
+        y: -1.0,
+    };
     let dummy_gamestate: GameState = GameState {
         planets: vec![
             leegistan.clone(),
@@ -227,71 +240,64 @@ fn test_simulate_arrivals() {
         ],
     };
 
-    assert_eq!((1, 0),  simulate_arrivals(&leegistan,     &dummy_gamestate));
-    assert_eq!((2, 1),  simulate_arrivals(&neemmijover,   &dummy_gamestate));
-    assert_eq!((1, 10), simulate_arrivals(&swaparoo,      &dummy_gamestate));
-    assert_eq!((1, 5),  simulate_arrivals(&reinforcement, &dummy_gamestate));
+    assert_eq!((1, 0), simulate_arrivals(&leegistan, &dummy_gamestate));
+    assert_eq!((2, 1), simulate_arrivals(&neemmijover, &dummy_gamestate));
+    assert_eq!((1, 10), simulate_arrivals(&swaparoo, &dummy_gamestate));
+    assert_eq!((1, 5), simulate_arrivals(&reinforcement, &dummy_gamestate));
 }
 
 #[test]
 fn test_score_fewer_ships() {
     // Same distance, fewer ships should pick fewest ships
     let homebase = Planet {
-                name: "Homebase".to_string(),
-                owner: Some(1),
-                ship_count: 10,
-                x: 0.0,
-                y: 0.0
-            };
+        name: "Homebase".to_string(),
+        owner: Some(1),
+        ship_count: 10,
+        x: 0.0,
+        y: 0.0,
+    };
     let fort = Planet {
-                name: "Fort".to_string(),
-                owner: Some(2),
-                ship_count: 8,
-                x: 1.0,
-                y: 0.0
-            };
+        name: "Fort".to_string(),
+        owner: Some(2),
+        ship_count: 8,
+        x: 1.0,
+        y: 0.0,
+    };
     let mudhut = Planet {
-                name: "Mud Hut".to_string(),
-                owner: Some(2),
-                ship_count: 1,
-                x: -1.0,
-                y: 0.0
-            };
+        name: "Mud Hut".to_string(),
+        owner: Some(2),
+        ship_count: 1,
+        x: -1.0,
+        y: 0.0,
+    };
     let dummy_gamestate: GameState = GameState {
-        planets: vec![
-            homebase.clone(),
-            fort.clone(),
-            mudhut.clone(),
-        ],
+        planets: vec![homebase.clone(), fort.clone(), mudhut.clone()],
         expeditions: vec![],
     };
 
     let mudhut_score = score(&homebase, &mudhut, &dummy_gamestate);
-    let fort_score   = score(&homebase, &fort,   &dummy_gamestate);
+    let fort_score = score(&homebase, &fort, &dummy_gamestate);
     assert!(mudhut_score.1 < fort_score.1);
 }
 
 #[test]
 fn test_score_empty_planet() {
     let homebase = Planet {
-                name: "Homebase".to_string(),
-                owner: Some(1),
-                ship_count: 10,
-                x: 0.0,
-                y: 0.0
-            };
+        name: "Homebase".to_string(),
+        owner: Some(1),
+        ship_count: 10,
+        x: 0.0,
+        y: 0.0,
+    };
     let empty = Planet {
-                name: "Empty".to_string(),
-                owner: None,
-                ship_count: 0,
-                x: 1.0,
-                y: 0.0
-            };
+        name: "Empty".to_string(),
+        owner: None,
+        ship_count: 0,
+        x: 1.0,
+        y: 0.0,
+    };
     let dummy_gamestate: GameState = GameState {
-        planets: vec![
-            homebase.clone(),
-            empty.clone(),
-        ],
+        planets: vec![homebase.clone(), empty.clone()],
         expeditions: vec![],
     };
 
