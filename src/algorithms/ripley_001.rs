@@ -48,16 +48,21 @@ impl Ripley001 {
 
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
         let mut moves = vec![];
-        for planet in &state.current_state.planets {
-            if planet.owner != Some(ME_ID) {
+
+        let planet_it = state.current_state.planets.iter()
+            .map(|p| (p, simulate_expeditions(&state.current_state.expeditions, p)))
+            .collect::<Vec<_>>();
+
+        for (planet, (owner_sim, fleets_sim)) in &planet_it {
+            if *owner_sim != ME_ID {
                 continue
             }
 
             let mut nearest_enemy_planet = None;
             {
                 for (_, planet_id) in &state.nearest_planets[planet.index] {
-                    let planet = &state.current_state.planets[*planet_id];
-                    if planet.owner != Some(ME_ID) {
+                    let (planet, (o, _)) = &planet_it[*planet_id];
+                    if *o != ME_ID {
                         nearest_enemy_planet = Some(planet);
                         break;
                     }
@@ -65,8 +70,8 @@ impl Ripley001 {
             }
 
             if let Some(enemy_planet) = nearest_enemy_planet {
-                let (o1, sc1) = simulate_expeditions(&state.current_state.expeditions, planet);
-                let (o2, sc2) = simulate_expeditions(&state.current_state.expeditions, enemy_planet);
+                let (o1, sc1) = planet_it[planet.index].1;
+                let (o2, sc2) = planet_it[enemy_planet.index].1;
                 if o1 != ME_ID || o2 == ME_ID {
                     continue; // skip if we can't conquer the enemy planet
                 }
