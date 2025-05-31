@@ -5,3 +5,4 @@ Versions:
 - [4.0.1]:	pretty good
 - [5.0.1]:	SUUUPER AGGRESSIVE
 - [6.1.1]:	remove prints and update weights to not be super aggresive
+- [6.1.2]:	adjustet weights to be not so extreme
