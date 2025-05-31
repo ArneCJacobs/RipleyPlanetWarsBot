@@ -1,1 +1,13 @@
+# Rust 
 /target
+
+
+# Python 
+__pycache__/ 
+
+# local files
+.venv/ 
+*.csv 
+*.jsonl
+
+
