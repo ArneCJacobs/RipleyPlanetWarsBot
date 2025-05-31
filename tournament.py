@@ -39,6 +39,7 @@ class Match(pydantic.BaseModel):
 def main():
     latest_rankings = pd.read_csv("latest_ratings.csv")
     opponents = latest_rankings["bot_name"].tolist()
+    print(opponents)
     maps = ['hex', 'spiral', 'hunger_games']
 
     own_bot = "ripleybot"
@@ -52,10 +53,25 @@ def main():
     opponents_ratings[own_bot] = ts_env.create_rating()
 
     simplebot_index = latest_rankings[latest_rankings["bot_name"] == "simplebot"].index
+    if simplebot_index.empty:
+        print("No simplebot found in the latest ratings. Exiting.")
+        return
+    try:
+        simplebot_index = int(simplebot_index[0])  # pyright: ignore[reportArgumentType]
+    except ValueError:
+        print("Invalid simplebot index found in the latest ratings. Exiting.")
+        return
+
+
     matches = []
-    for opponent in tqdm(opponents[simplebot_index[0]:]):
+    progress_bar = tqdm(
+        total=(len(opponents) - simplebot_index) * len(maps),
+        desc="Playing matches",
+    )
+    for opponent in opponents[:simplebot_index]:
         for map in maps:
-            result = play_match(ts_env, opponents_ratings, own_bot, opponent, map)
+            match_id, result = play_match(ts_env, opponents_ratings, own_bot, opponent, map)
+            print(f"{match_id=}, {own_bot=} vs {opponent=}, {map=}, {result=}")
 
             if result is None:
                 result_text = "draw"
@@ -69,6 +85,7 @@ def main():
 
             timestamp = datetime.datetime.now().isoformat()
             matches.append({
+                'match_id': match_id,
                 "timestamp": timestamp,
                 "bot_name": own_bot,
                 "rating_mu" : own_rating.mu,
@@ -79,6 +96,7 @@ def main():
             })
 
             matches.append({
+                'match_id': match_id,
                 "timestamp": timestamp,
                 "bot_name": opponent,
                 "rating_mu" : opponent_rating.mu,
@@ -87,12 +105,15 @@ def main():
                 "map": map,
                 "result": "draw" if result_text == "draw" else "loss" if result_text == "win" else "win",
             })
+            progress_bar.update(1)
+
+    progress_bar.close()
 
     matches_df = pd.DataFrame(matches)
     matches_df.to_parquet("matches.parquet", index=False)
 
 
-    latest_ratings = matches_df.sort_values(by='timestamp').groupby('id').last().reset_index()
+    latest_ratings = matches_df.sort_values(by='timestamp').groupby('bot_name').last().reset_index()
     # sort by ratings 
     latest_ratings = latest_ratings.sort_values(by='rating_mu', ascending=False)
     #pretty print 
@@ -107,7 +128,7 @@ def play_match(
     own_bot: str,
     opponent_bot: str,
     map_name: str,
-) -> bool | None:
+) -> tuple[str, bool | None]:
     own_rating = opponents_ratings[own_bot]
     opponent_rating = opponents_ratings[opponent_bot]
 
@@ -144,11 +165,10 @@ def play_match(
 
 
     match = Match.model_validate(request.json())
-    if match.state != "Playing":
+    while match.state == "Playing":
         sleep(1)
         request = requests.get(match_stat_url, params)
         match = Match.model_validate(request.json())
-
 
     ratings_groups = [
         (opponent_rating,) if player.bot_name == opponent_bot else (own_rating,) 
@@ -169,9 +189,10 @@ def play_match(
 
     if match.winner is None:
         # match ended in a draw
-        return None
+        return match_id, None
 
-    return match.players[match.winner].id != opponent_bot
+
+    return match_id, match.players[match.winner].id != opponent_bot
 
 
 if __name__ == "__main__": main()
