@@ -26,8 +26,8 @@ fn main() {
 
         let line = line.unwrap();
         //eprintln!("{}", line);
-        eprintln!("=========================================================");
-        eprintln!("Turn: {}", state.turn + 1);
+        //eprintln!("=========================================================");
+        //eprintln!("Turn: {}", state.turn + 1);
         //eprintln!("Input: {}", line);
 
         let input: Input = serde_json::from_str(&line).unwrap();
