@@ -163,7 +163,7 @@ impl Ripley {
 
             let ship_count = planet.ship_count;
             let ships_needed_to_survive = planet_it[planet.index].1.ships_needed_to_survive;
-            if ship_count < ships_needed_to_survive {
+            if ship_count <= ships_needed_to_survive {
                 continue; // skip if we don't have enough ships to survive
             }
             let move_ship_count = ship_count - ships_needed_to_survive;
