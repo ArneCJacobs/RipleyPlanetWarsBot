@@ -1,6 +1,9 @@
 # TODOs
 
 - [ ] the way the final rankings are calculated aren't completely accurate, ripleybot has a lower rating then some of the bots it has won against.
+- [ ] recalculate the score very time a new move is picked
+- [ ] don't send all you can in one move, see how much a planet needs to send so a single planet can possibly sound out multiple expiditions
+- [ ] add a score heuristic to prefer planets that are clustered together
 
 # Relevant commands
 cargo build && planetwars-client --grpc-server-url  http://planetwars.zeus.gent:7000 ripleybot.toml simplebot --map hex

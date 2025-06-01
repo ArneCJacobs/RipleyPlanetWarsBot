@@ -7,30 +7,24 @@ def move(command):
         moves.append(command)
 
     print(json.dumps({ 'moves': moves }))
-    print(f"Sent command", file=sys.stderr)
-    # flush the buffer, so that the gameserver can receive the json-encoded line.
+    # flush the buffer, so that the gameserver can receive the line
     sys.stdout.flush()
 
 
 for line in sys.stdin:
     state = json.loads(line)
-    print("=" * 20, file=sys.stderr)
-    print(f"Received state", file=sys.stderr)
+
     # you are always player 1.
     my_planets = [p for p in state['planets'] if p['owner'] == 1]
     other_planets = [p for p in state['planets'] if p['owner'] != 1]
 
     if not my_planets or not other_planets:
-        # we don't own any planets, so we can't make any moves.
+        # no valid moves can be made
         move(None)
     else:
-        # find my planet that has the most ships
-        planet = max(my_planets, key=lambda p: p['ship_count'])
-        # find enemy planet that has the least ships
-        destination = min(other_planets, key=lambda p: p['ship_count'])
-        # attack!
+        # send some ships!
         move({
-            'origin': planet['name'],
-            'destination': destination['name'],
-            'ship_count': planet['ship_count'] - 1
+            'origin': my_planets[0]['name'],
+            'destination': other_planets[0]['name'],
+            'ship_count': 1
         })

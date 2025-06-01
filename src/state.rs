@@ -1,16 +1,12 @@
 use std::collections::HashMap;
 
-use bit_set::BitSet;
-
 use crate::data::{Input,PlanetName};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct State {
     pub current_state: Input,
-    pub saved_expeditions: BitSet,
     pub planet_map: HashMap<PlanetName, usize>,
-    pub planet_names: Vec<PlanetName>,
     pub turn: i64,
     // maps planet_id to a list of planet_ids and distances, sorted by distance ascending
     //pub nearest_planets: Vec<Vec<(f32, PlanetId)>>,
@@ -49,11 +45,8 @@ impl State {
         //}
 
         State {
-            //nearest_planets,
-            planet_names,
             current_state: input,
             planet_map,
-            saved_expeditions: BitSet::new(),
             turn: 0,
         }
     }

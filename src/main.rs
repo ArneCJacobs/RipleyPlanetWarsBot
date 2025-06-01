@@ -40,6 +40,7 @@ fn main() {
 
         let output = Output {
             moves: algorithm.calculate(&state),
+            //moves: vec![],
         };
 
         // while now.elapsed() < Duration::from_millis(MAX_DURATION) {
@@ -48,12 +49,8 @@ fn main() {
         ////
         // }
 
-        println!(
-            "{}",
-            serde_json::to_string(&output).expect("Could not serialize output")
-        );
+        println!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
         io::stdout().flush().unwrap();
-        //eprintln!("{}", serde_json::to_string(&output).expect("Could not serialize output"));
         state.tick();
     }
 }
