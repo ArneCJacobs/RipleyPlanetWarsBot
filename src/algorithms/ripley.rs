@@ -88,7 +88,7 @@ pub struct Ripley {
 
 // score are better the lower they are
 const DEFENCE_FACTOR: f32 = 0.7;
-const NEUTRAL_FACTOR: f32 = 1.3;
+const NEUTRAL_FACTOR: f32 = 1.8;
 const OFFENCE_FACTOR: f32 = 1.0;
 
 impl Ripley {
