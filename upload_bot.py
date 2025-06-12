@@ -30,7 +30,11 @@ def main():
     # )
 
     res = subprocess.run(
-        ["docker", "push", f"{REGISTRY}/ripleybot:latest"],
+        [
+            "docker",
+            "push",
+            f"{REGISTRY}/ripleybot:latest",
+        ],
     )
 
 if __name__ == "__main__":
