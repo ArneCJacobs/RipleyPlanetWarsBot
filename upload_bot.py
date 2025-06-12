@@ -9,6 +9,7 @@ def main():
             "build",
             "-t",
             f"ripleybot:latest",
+            "--platform=linux/amd64",
             ".",
         ],
     )
@@ -17,7 +18,7 @@ def main():
             "docker",
             "tag",
             f"ripleybot:latest",
-            REGISTRY + "/ripleybot",
+            REGISTRY + "/ripleybot:latest",
         ],
     )
     if res.returncode != 0:
@@ -31,8 +32,6 @@ def main():
     res = subprocess.run(
         ["docker", "push", f"{REGISTRY}/ripleybot:latest"],
     )
-
-
 
 if __name__ == "__main__":
     main()

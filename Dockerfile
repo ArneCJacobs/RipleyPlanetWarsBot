@@ -25,7 +25,7 @@ RUN cargo build --release
 FROM debian:bullseye-slim
 
 # copy the build artifact from the build stage
-COPY --from=builder /ripleybot/target/release/RipleyPlanetWarsBot .
+COPY --from=builder /ripleybot/target/release/RipleyPlanetWarsBot /usr/local/bin/RipleyPlanetWarsBot
 
 # set the startup command to run your binary
-CMD ["./RipleyPlanetWarsBot"]
+CMD ["RipleyPlanetWarsBot"]
