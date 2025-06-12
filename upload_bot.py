@@ -13,6 +13,10 @@ def main():
             ".",
         ],
     )
+
+    if res.returncode != 0:
+        exit(1)
+
     res = subprocess.run(
         [
             "docker",
@@ -22,8 +26,7 @@ def main():
         ],
     )
     if res.returncode != 0:
-        print("Failed to tag the image.")
-        return
+        exit(1)
 
     # res = subprocess.run(
     #     ["docker", "push", f"{REGISTRY}/ripleybot:{tag}"],
@@ -36,6 +39,9 @@ def main():
             f"{REGISTRY}/ripleybot:latest",
         ],
     )
+
+    if res.returncode != 0:
+        exit(1)
 
 if __name__ == "__main__":
     main()
