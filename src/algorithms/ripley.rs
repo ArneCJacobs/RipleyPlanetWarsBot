@@ -87,9 +87,9 @@ pub struct Ripley {
 }
 
 // score are better the lower they are
-const DEFENCE_FACTOR: f32 = 0.7;
-const NEUTRAL_FACTOR: f32 = 1.8;
-const OFFENCE_FACTOR: f32 = 1.0;
+const DEFENCE_FACTOR: f32 = 1.0;
+const NEUTRAL_FACTOR: f32 = 1.5;
+const OFFENCE_FACTOR: f32 = 1.2;
 
 impl Ripley {
     pub fn new() -> Self {Ripley { }}

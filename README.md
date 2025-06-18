@@ -13,6 +13,10 @@
 cargo build && planetwars-client --grpc-server-url  http://planetwars.zeus.gent:7000 ripleybot.toml simplebot --map hex
 ipython --pdb -c "%run tournament.py"
 
+https://git.zeus.gent/midgard/planetwars_client_python/
+`planetwars_client ./target/debug/RipleyPlanetWarsBot silviator hunger_games`
+
+
 # setup
 
 ## python
