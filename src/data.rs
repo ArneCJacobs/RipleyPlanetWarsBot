@@ -6,6 +6,7 @@ pub type ExpeditionId = u64;
 pub type PlayerId = u8;
 pub type PlanetId = usize;
 pub const ME_ID: PlayerId = 1;
+pub const OTHER_ID: PlayerId = 2;
 
 #[derive(Deserialize, Clone, Default)]
 pub struct Input {

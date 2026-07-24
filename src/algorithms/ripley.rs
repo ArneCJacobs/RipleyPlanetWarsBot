@@ -84,6 +84,7 @@ struct Scores {
     ships_needed_to_survive: i64,
 }
 pub struct Ripley {
+    me_id: PlayerId,
 }
 
 // score are better the lower they are
@@ -92,7 +93,7 @@ const NEUTRAL_FACTOR: f32 = 1.5;
 const OFFENCE_FACTOR: f32 = 1.2;
 
 impl Ripley {
-    pub fn new() -> Self {Ripley { }}
+    pub fn new(me_id: PlayerId) -> Self {Ripley { me_id }}
 
     pub fn calculate(&mut self, state: &State) -> Vec<Move> {
         let mut moves = vec![];
@@ -117,8 +118,8 @@ impl Ripley {
         for planet in &state.current_state.planets {
             let planet_scores = &planet_it[planet.index].1;
             // don't send ships from our own planets if we don't have enough to survive
-            if (planet.owner == Some(ME_ID) && planet.ship_count < planet_scores.ships_needed_to_survive)  
-                || planet.owner != Some(ME_ID)
+            if (planet.owner == Some(self.me_id) && planet.ship_count < planet_scores.ships_needed_to_survive)  
+                || planet.owner != Some(self.me_id)
             {
                 continue;
             }
@@ -132,10 +133,10 @@ impl Ripley {
                 let mut score = None; 
                 let other_planet_scores = &planet_it[other_planet.index].1;
 
-                if other_planet.owner == Some(ME_ID) && 
+                if other_planet.owner == Some(self.me_id) && 
                     other_planet.ship_count < other_planet_scores.ships_needed_to_survive {
                     score = Some((distance + other_planet_scores.ships_needed_to_survive) as f32 * DEFENCE_FACTOR);
-                } else if other_planet_scores.projected_owner != ME_ID {
+                } else if other_planet_scores.projected_owner != self.me_id {
                     let factor = if other_planet.owner.is_none() {
                         NEUTRAL_FACTOR
                     } else {
