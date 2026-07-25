@@ -7,6 +7,10 @@ use rand::{RngExt, SeedableRng, distr::{Distribution, weighted::WeightedIndex}, 
 use std::sync::{LazyLock, Mutex};
 
 const MAX_ITERATIONS: u64 = 600;
+// long-term worth of owning a planet, replacing the growth of a long unopposed lookahead
+const PLANET_VALUE: f64 = 50.0;
+// upper bound on the lookahead derived from the map diameter
+const MAX_HORIZON: i64 = 100;
 const RNG_SEED: u64 = 42;
 static RNG: LazyLock<Mutex<StdRng>> = LazyLock::new(|| Mutex::new(StdRng::seed_from_u64(RNG_SEED)));
 // static RNG: LazyLock<Mutex<StdRng>> = LazyLock::new(|| Mutex::new(StdRng::from_os_rng()));
@@ -28,10 +32,10 @@ pub fn get_score_state(
     // lower better
     let mut score = 0.0;
     for planet in &state.current_state.planets {
-        if planet.owner == Some(me_id) {
-            score -= planet.ship_count as f64;
-        } else {
-            score += planet.ship_count as f64;
+        match planet.owner {
+            Some(owner) if owner == me_id => score -= PLANET_VALUE + planet.ship_count as f64,
+            Some(_) => score += PLANET_VALUE + planet.ship_count as f64,
+            None => {} // neutral planets are not the enemy, so they do not count
         }
 
         // for other_planet in &state.current_state.planets {
@@ -72,8 +76,8 @@ pub fn neighbour(
     // TODO: we could store weighed index so its not constructed each time
     // TODO: instead of only taking distance into account, we could also use static defence-ability
     let max_weight = closest_planets.last().unwrap().0;
-    let min_weight = closest_planets.first().unwrap().0;
-    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d+min_weight)).unwrap();
+    let min_weight = closest_planets[1].0;
+    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d.max(min_weight)+min_weight)).unwrap();
     let (_, new_target_id) = closest_planets[dist.sample(&mut *rng)];
 
     let destination = state.current_state.planets[new_target_id].name.clone();
@@ -132,8 +136,19 @@ impl RipleyGreedyOptimization {
 
         add_loopback_moves(self.me_id, begin_state, &mut best_moves);
 
+        // static horizon: the ceil of the map diameter, capped, so the score does not depend on
+        // the in-flight expeditions. The diameter is approximated by the planets furthest apart in
+        // x and in y (whichever pair spans more), since planet positions never change.
+        let planets = &begin_state.current_state.planets;
+        let min_x = planets.iter().min_by(|a, b| a.x.partial_cmp(&b.x).unwrap()).unwrap();
+        let max_x = planets.iter().max_by(|a, b| a.x.partial_cmp(&b.x).unwrap()).unwrap();
+        let min_y = planets.iter().min_by(|a, b| a.y.partial_cmp(&b.y).unwrap()).unwrap();
+        let max_y = planets.iter().max_by(|a, b| a.y.partial_cmp(&b.y).unwrap()).unwrap();
+        let diameter = min_x.distance(max_x).max(min_y.distance(max_y));
+        let horizon = (diameter.ceil() as i64).min(MAX_HORIZON);
+
         // eprintln!("Initial moves: {:?}", best_moves);
-        let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state).apply_expeditions(100);
+        let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state).apply_expeditions(horizon);
         let mut best_score = get_score_state(self.me_id, &simulated_state);
         let mut iterations = 0;
 
@@ -143,7 +158,7 @@ impl RipleyGreedyOptimization {
             let new_moves = neighbour(begin_state, &best_moves);
             // eprintln!("new moves after: {:?}", new_moves);
 
-            let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(100);
+            let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(horizon);
             let new_score = get_score_state(self.me_id, &simulated_state);
             if new_score < best_score {
                 best_score = new_score;

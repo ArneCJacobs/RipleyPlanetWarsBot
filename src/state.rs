@@ -134,9 +134,9 @@ impl State {
             if elem.is_empty() {
                 let planet_current = &self.current_state.planets[planet_id];
                 for (other_planet_id, planet_other) in self.current_state.planets.iter().enumerate() {
-                    if other_planet_id == planet_id {
-                        continue;
-                    }
+                    // if other_planet_id == planet_id {
+                    //     continue;
+                    // }
 
                     let distance = planet_current.distance(planet_other);
                     elem.push((distance.into(), other_planet_id));
