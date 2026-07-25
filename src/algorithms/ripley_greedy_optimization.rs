@@ -30,8 +30,8 @@ pub fn get_score_state(
             score += planet.ship_count as f64;
         }
 
-        for other_planet in &state.current_state.planets[index+1..] {
-            match planet.owner {
+        for other_planet in &state.current_state.planets {
+            match other_planet.owner {
                 None => continue,
                 Some(x) if x == me_id => {
                     score += planet.distance(other_planet).ceil() as f64 - other_planet.ship_count as f64;
@@ -67,7 +67,8 @@ pub fn neighbour(
     let closest_planets = state.get_closest(old_target_id);
     // TODO: we could store weighed index so its not constructed each time
     // TODO: instead of only taking distance into account, we could also use static defence-ability
-    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| d)).unwrap();
+    let max_weight = closest_planets.last().unwrap().0;
+    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d)).unwrap();
     let (_, mut new_target_id) = closest_planets[dist.sample(&mut rand::rng())];
     // only retry once, good enough
     if new_target_id == old_target_id {
@@ -132,7 +133,7 @@ impl RipleyGreedyOptimization {
     pub fn calculate(&mut self, begin_state: &State) -> Vec<Move> {
         let now = Instant::now();
         let mut best_moves = consolidate_moves(self.heuristic_algorithm.calculate(begin_state));
-        let simulated_state = apply_simulated_moves(&best_moves, begin_state);
+        let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state).apply_expeditions(100);
         let mut best_score = get_score_state(self.me_id, &simulated_state);
         let mut iterations = 0;
 
@@ -140,7 +141,7 @@ impl RipleyGreedyOptimization {
             // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
             let new_moves = consolidate_moves(neighbour(begin_state, &best_moves));
 
-            let simulated_state = apply_simulated_moves(&new_moves, begin_state).apply_expeditions(100);
+            let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(100);
             let new_score = get_score_state(self.me_id, &simulated_state);
             if new_score < best_score {
                 best_score = new_score;

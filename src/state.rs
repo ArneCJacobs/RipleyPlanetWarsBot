@@ -147,22 +147,31 @@ impl State {
     }
 }
 
+// converts moves given to the server to actual expiditions
 pub fn apply_simulated_moves(
+    owner_id: PlayerId,
     simulated_moves: &Vec<Move>,
     state: &State,
 ) -> State {
     let mut simulated_state = state.clone(); 
 
     for player_move in simulated_moves {
-        let planet_origin = &state.current_state.planets[state.planet_map[&player_move.origin]];
-        let planet_destination = &state.current_state.planets[state.planet_map[&player_move.destination]];
+        {
+            let planet_origin = &mut simulated_state.current_state.planets[state.planet_map[&player_move.origin]];
+            if player_move.ship_count > planet_origin.ship_count {
+                panic!("Player moves more ships then available, ships available: {0}, move: {player_move:?}", planet_origin.ship_count)
+            }
+            planet_origin.ship_count -= player_move.ship_count;
+        }
+        let planet_origin = &simulated_state.current_state.planets[state.planet_map[&player_move.origin]];
+        let planet_destination = &simulated_state.current_state.planets[state.planet_map[&player_move.destination]];
         let distance = planet_origin.distance(planet_destination).ceil() as i64;
         simulated_state.current_state.expeditions.push(Expedition{
             id: 1235,
             ship_count: player_move.ship_count,
             origin: player_move.origin.clone(),
             destination: player_move.destination.clone(),
-            owner: OTHER_ID,
+            owner: owner_id,
             turns_remaining: distance,
         })
     }

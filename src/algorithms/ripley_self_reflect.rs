@@ -26,7 +26,7 @@ impl RipleySelfReflect {
         let mut moves = vec![];
 
         let simulated_moves = self.other_algorithm.calculate(starting_state); 
-        let simulated_state = apply_simulated_moves(&simulated_moves, starting_state);
+        let simulated_state = apply_simulated_moves(OTHER_ID, &simulated_moves, starting_state);
 
         let planet_it = simulated_state
             .current_state
