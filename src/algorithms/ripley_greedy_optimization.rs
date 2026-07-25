@@ -58,11 +58,12 @@ pub fn neighbour(
     }
 
     let chosen_index = rand::random_range(..neighbour_moves.len());
-    let mut chosen_move = neighbour_moves[chosen_index].clone();
+    let mut old_move = neighbour_moves[chosen_index].clone();
+    let old_target_id = state.planet_map[&old_move.destination];
     // TODO: only ever take one ship? or at least a max amount
-    let ships = rand::random_range(..chosen_move.ship_count as u64);
-    let old_target_id = state.planet_map[&chosen_move.destination];
-    chosen_move.ship_count -= ships as i64;
+    // TODO: take into account the total amount of ships available, including those "in reserve" on
+    // the planet
+    let ships = rand::random_range(..old_move.ship_count as u64);
     // pick planet close to current destination
     let closest_planets = state.get_closest(old_target_id);
     // TODO: we could store weighed index so its not constructed each time
@@ -75,16 +76,22 @@ pub fn neighbour(
         (_, new_target_id) = closest_planets[dist.sample(&mut rand::rng())];
     }
 
-    neighbour_moves.push(Move::new(
-        chosen_move.origin.clone(),
-        state.current_state.planets[new_target_id].name.clone(),
-        ships.try_into().unwrap(),
-    ));
+    let destination = state.current_state.planets[new_target_id].name.clone();
+    // chose to keep more ships on the planet
+    if destination != old_move.origin {
+        neighbour_moves.push(Move::new(
+                old_move.origin.clone(),
+                destination,
+                ships.try_into().unwrap(),
+        ));
+    }
+
     
-    if chosen_move.ship_count == 0 {
+    old_move.ship_count -= ships as i64;
+    if old_move.ship_count == 0 {
         neighbour_moves.remove(chosen_index);
     } else {
-        neighbour_moves[chosen_index] = chosen_move;
+        neighbour_moves[chosen_index] = old_move;
     }
 
     neighbour_moves 
@@ -131,8 +138,11 @@ impl RipleyGreedyOptimization {
     }
 
     pub fn calculate(&mut self, begin_state: &State) -> Vec<Move> {
+        eprintln!("======================================================================");
+        eprintln!("Begin state: {:?}", begin_state);
         let now = Instant::now();
         let mut best_moves = consolidate_moves(self.heuristic_algorithm.calculate(begin_state));
+        eprintln!("Initial moves: {:?}", best_moves);
         let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state).apply_expeditions(100);
         let mut best_score = get_score_state(self.me_id, &simulated_state);
         let mut iterations = 0;
@@ -140,6 +150,7 @@ impl RipleyGreedyOptimization {
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
             // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
             let new_moves = consolidate_moves(neighbour(begin_state, &best_moves));
+            eprintln!("new moves: {:?}", new_moves);
 
             let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(100);
             let new_score = get_score_state(self.me_id, &simulated_state);
@@ -150,7 +161,7 @@ impl RipleyGreedyOptimization {
             iterations += 1;
         }
         let elapsed = now.elapsed();
-        eprintln!("{:.2?}", elapsed);
+        // eprintln!("{:.2?}", elapsed);
 
         best_moves
     }

@@ -1,6 +1,6 @@
 use std::{cell::{Ref, RefCell}, collections::HashMap, rc::Rc};
 
-use crate::data::{Expedition, Input, Move, OTHER_ID, Planet, PlanetId, PlanetName, PlayerId};
+use crate::data::{Expedition, Input, ME_ID, Move, OTHER_ID, Planet, PlanetId, PlanetName, PlayerId};
 
 type DistanceMatrix = Vec<Vec<(f64, PlanetId)>>;
 
@@ -158,6 +158,9 @@ pub fn apply_simulated_moves(
     for player_move in simulated_moves {
         {
             let planet_origin = &mut simulated_state.current_state.planets[state.planet_map[&player_move.origin]];
+            if planet_origin.owner != Some(owner_id) {
+                panic!("Trying to send an expeidition from a planet you do not own: owner: {owner_id}, planet: {planet_origin:?}")
+            }
             if player_move.ship_count > planet_origin.ship_count {
                 panic!("Player moves more ships then available, ships available: {0}, move: {player_move:?}", planet_origin.ship_count)
             }
