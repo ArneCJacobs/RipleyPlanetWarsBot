@@ -30,7 +30,6 @@ pub fn get_score_state(
             score += planet.ship_count as f64;
         }
 
-        // TODO: instead iterate over the n closest
         for other_planet in &state.current_state.planets[index+1..] {
             match planet.owner {
                 None => continue,
@@ -61,9 +60,6 @@ pub fn neighbour(
     let chosen_index = rand::random_range(..neighbour_moves.len());
     let mut chosen_move = neighbour_moves[chosen_index].clone();
     // TODO: only ever take one ship? or at least a max amount
-    if chosen_move.ship_count == 0 {
-        return neighbour_moves;
-    }
     let ships = rand::random_range(..chosen_move.ship_count as u64);
     let old_target_id = state.planet_map[&chosen_move.destination];
     chosen_move.ship_count -= ships as i64;
@@ -93,6 +89,37 @@ pub fn neighbour(
     neighbour_moves 
 }
 
+fn consolidate_moves(mut moves: Vec<Move>) -> Vec<Move> {
+    moves.sort_unstable_by_key(|mv| (mv.origin.clone(), mv.destination.clone(), mv.ship_count));
+
+    let mut new_moves = Vec::new();
+    for (index, mv) in moves.iter().enumerate() {
+        let mut run_last_index = index + 1; 
+        for (other_index, other_mv) in moves.iter().enumerate().skip(index+1) {
+            if other_mv.origin != mv.origin || other_mv.destination != mv.destination {
+                run_last_index = other_index;
+                break;
+            }
+        };
+        if run_last_index == index + 1 {
+            new_moves.push(mv.clone());
+            continue;
+        }
+        let mv_agg = moves[index..run_last_index].iter().fold(
+            Move {
+                origin: mv.origin.clone(),
+                destination: mv.destination.clone(),
+                ship_count: 0,
+            }, 
+            |mut acc, mv| {
+            acc.ship_count += mv.ship_count;
+            acc
+        });
+        new_moves.push(mv_agg);
+    }
+    new_moves.into_iter().filter(|mv| mv.ship_count != 0).collect()
+}
+
 
 impl RipleyGreedyOptimization {
     pub fn new(me_id: PlayerId) -> Self {
@@ -104,14 +131,15 @@ impl RipleyGreedyOptimization {
 
     pub fn calculate(&mut self, begin_state: &State) -> Vec<Move> {
         let now = Instant::now();
-        let mut best_moves = self.heuristic_algorithm.calculate(begin_state);
+        let mut best_moves = consolidate_moves(self.heuristic_algorithm.calculate(begin_state));
         let simulated_state = apply_simulated_moves(&best_moves, begin_state);
         let mut best_score = get_score_state(self.me_id, &simulated_state);
         let mut iterations = 0;
 
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
             // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
-            let new_moves = neighbour(begin_state, &best_moves);
+            let new_moves = consolidate_moves(neighbour(begin_state, &best_moves));
+
             let simulated_state = apply_simulated_moves(&new_moves, begin_state).apply_expeditions(100);
             let new_score = get_score_state(self.me_id, &simulated_state);
             if new_score < best_score {
