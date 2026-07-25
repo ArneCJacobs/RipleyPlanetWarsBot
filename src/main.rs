@@ -9,22 +9,15 @@ use state::State;
 
 use crate::data::ME_ID;
 
-
-#[allow(dead_code)]
-const MAX_TURNS: u64 = 500;
-#[allow(dead_code)]
-const HARD_MAX_DURATION: u64 = 1000;
-#[allow(dead_code)]
-const MAX_DURATION: u64 = 800;
-
 fn main() {
     let stdin = io::stdin();
     let mut state = State::default();
     //let mut algorithm = AlgorithmSimple::default();
     // let mut algorithm = algorithms::ripley_self_reflect::RipleySelfReflect::new();
-    let mut algorithm = algorithms::ripley::Ripley::new(ME_ID);
+    // let mut algorithm = algorithms::ripley::Ripley::new(ME_ID);
     //let mut algorithm = algorithms::simple::AlgorithmSimple::default();
     // let mut file = File::open("debug.jsonl").unwrap();
+    let mut algorithm = algorithms::ripley_greedy_optimization::RipleyGreedyOptimization::new(ME_ID);
 
     for line in stdin.lock().lines() {
         //let now = Instant::now();

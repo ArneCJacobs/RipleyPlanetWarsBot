@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    algorithms::ripley::{Ripley, simulate_expeditions, simulate_expeditions_required_ships_to_survive}, data::{Expedition, ME_ID, Move, OTHER_ID, Planet, PlayerId}, state::State
+    algorithms::ripley::{Ripley, simulate_expeditions, simulate_expeditions_required_ships_to_survive}, data::{Expedition, ME_ID, Move, OTHER_ID, Planet, PlayerId}, state::{State, apply_simulated_moves}
 };
 
 struct Scores {
@@ -12,30 +12,6 @@ struct Scores {
 }
 pub struct RipleySelfReflect {
     other_algorithm: Ripley
-}
-
-pub fn apply_simulated_moves(
-    simulated_moves: Vec<Move>,
-    state: &State,
-) -> State {
-    let mut simulated_state = state.clone(); 
-
-    for player_move in &simulated_moves {
-        let planet_origin = &state.current_state.planets[state.planet_map[&player_move.origin]];
-        let planet_destination = &state.current_state.planets[state.planet_map[&player_move.destination]];
-        let distance = planet_origin.distance(planet_destination).ceil() as i64;
-        simulated_state.current_state.expeditions.push(Expedition{
-            id: 1235,
-            ship_count: player_move.ship_count,
-            origin: player_move.origin.clone(),
-            destination: player_move.destination.clone(),
-            owner: OTHER_ID,
-            turns_remaining: distance,
-        })
-    }
-
-
-    simulated_state
 }
 
 // score are better the lower they are

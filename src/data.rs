@@ -8,6 +8,13 @@ pub type PlanetId = usize;
 pub const ME_ID: PlayerId = 1;
 pub const OTHER_ID: PlayerId = 2;
 
+#[allow(dead_code)]
+const MAX_TURNS: u64 = 500;
+#[allow(dead_code)]
+const HARD_MAX_DURATION: u64 = 1000;
+#[allow(dead_code)]
+const MAX_DURATION: u64 = 800;
+
 #[derive(Deserialize, Clone, Default)]
 pub struct Input {
     pub planets: Vec<Planet>,
