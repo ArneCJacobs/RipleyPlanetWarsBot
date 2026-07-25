@@ -161,6 +161,11 @@ pub fn apply_simulated_moves(
             if planet_origin.owner != Some(owner_id) {
                 panic!("Trying to send an expeidition from a planet you do not own: owner: {owner_id}, planet: {planet_origin:?}")
             }
+            // move from and to the same planet finish instantly and are not counted
+            if player_move.origin == player_move.destination {
+                // planet_origin.ship_count += player_move.ship_count;
+                continue;
+            }
             if player_move.ship_count > planet_origin.ship_count {
                 panic!("Player moves more ships then available, ships available: {0}, move: {player_move:?}", planet_origin.ship_count)
             }
