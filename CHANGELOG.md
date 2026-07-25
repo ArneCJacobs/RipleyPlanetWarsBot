@@ -8,3 +8,4 @@ Versions:
 - [6.1.2]:	adjustet weights to be not so extreme
 - [6.1.3]:	adjusted weights yet again
 - [6.0.0]:	implement greedy and self reflect ripley
+- [6.0.1]:	ripleybot4 (greedy)j
