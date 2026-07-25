@@ -7,3 +7,4 @@ Versions:
 - [6.1.1]:	remove prints and update weights to not be super aggresive
 - [6.1.2]:	adjustet weights to be not so extreme
 - [6.1.3]:	adjusted weights yet again
+- [6.0.0]:	implement greedy and self reflect ripley
