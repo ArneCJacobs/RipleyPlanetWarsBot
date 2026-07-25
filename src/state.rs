@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use std::{cell::{Ref, RefCell}, collections::HashMap, rc::Rc};
 
-use crate::data::{Expedition, Input, Move, OTHER_ID, Planet, PlanetName, PlayerId};
+use crate::data::{Expedition, Input, Move, OTHER_ID, Planet, PlanetId, PlanetName, PlayerId};
+
+type DistanceMatrix = Vec<Vec<(f64, PlanetId)>>;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
@@ -10,6 +12,7 @@ pub struct State {
     pub turn: i64,
     // maps planet_id to a list of planet_ids and distances, sorted by distance ascending
     //pub nearest_planets: Vec<Vec<(f32, PlanetId)>>,
+    pub distance_matrix: Rc<RefCell<DistanceMatrix>>
 }
 
 impl State {
@@ -43,11 +46,15 @@ impl State {
         //    distances.sort_unstable_by(|(d1, _), (d2, _)| d1.partial_cmp(d2).unwrap());
           //nearest_planets.push(distances);
         //}
+        
+        // TODO: use something that inlines the vec, something like smallvec
+        let distance_matrix = (0..planet_names.len()).map(|_| Vec::with_capacity(planet_names.len())).collect();
 
         State {
             current_state: input,
             planet_map,
             turn: 0,
+            distance_matrix: Rc::new(RefCell::new(distance_matrix)),
         }
     }
 
@@ -112,15 +119,41 @@ impl State {
 
        simulated_state
     }
+
+    pub fn get_closest(
+        &self,
+        planet_id: PlanetId,
+    ) -> Ref<'_, Vec<(f64, PlanetId)>> {
+
+        {
+            let mut distance_matrix = self.distance_matrix.borrow_mut();
+            let elem = &mut distance_matrix[planet_id];
+            if elem.is_empty() {
+                let planet_current = &self.current_state.planets[planet_id];
+                for (other_planet_id, planet_other) in self.current_state.planets.iter().enumerate() {
+                    if other_planet_id == planet_id {
+                        continue;
+                    }
+
+                    let distance = planet_current.distance(planet_other);
+                    elem.push((distance.into(), other_planet_id));
+                }
+                elem.sort_unstable_by(|(d1, _), (d2, _)| d1.partial_cmp(d2).unwrap());
+            }
+        }
+
+        Ref::map(self.distance_matrix.borrow(), |value| &value[planet_id])
+
+    }
 }
 
 pub fn apply_simulated_moves(
-    simulated_moves: Vec<Move>,
+    simulated_moves: &Vec<Move>,
     state: &State,
 ) -> State {
     let mut simulated_state = state.clone(); 
 
-    for player_move in &simulated_moves {
+    for player_move in simulated_moves {
         let planet_origin = &state.current_state.planets[state.planet_map[&player_move.origin]];
         let planet_destination = &state.current_state.planets[state.planet_map[&player_move.destination]];
         let distance = planet_origin.distance(planet_destination).ceil() as i64;
