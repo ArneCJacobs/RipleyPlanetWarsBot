@@ -69,12 +69,16 @@ pub fn neighbour(
     // TODO: we could store weighed index so its not constructed each time
     // TODO: instead of only taking distance into account, we could also use static defence-ability
     let max_weight = closest_planets.last().unwrap().0;
-    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d)).unwrap();
-    let (_, mut new_target_id) = closest_planets[dist.sample(&mut rand::rng())];
-    // only retry once, good enough
-    if new_target_id == old_target_id {
-        (_, new_target_id) = closest_planets[dist.sample(&mut rand::rng())];
-    }
+    let min_weight = closest_planets.first().unwrap().0;
+    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, other_planet_id)| {
+        // set the weight of the old target to 0 so it is never picked
+        if old_target_id != *other_planet_id {
+            max_weight-d+min_weight
+        } else {
+            0.0
+        }
+    })).unwrap();
+    let (_, new_target_id) = closest_planets[dist.sample(&mut rand::rng())];
 
     let destination = state.current_state.planets[new_target_id].name.clone();
     // chose to keep more ships on the planet
@@ -93,7 +97,7 @@ pub fn neighbour(
         neighbour_moves[chosen_index] = old_move;
     }
 
-    neighbour_moves 
+    consolidate_moves(neighbour_moves)
 }
 
 impl RipleyGreedyOptimization {
@@ -105,22 +109,20 @@ impl RipleyGreedyOptimization {
     }
 
     pub fn calculate(&mut self, begin_state: &State) -> Vec<Move> {
-        eprintln!("======================================================================");
-        eprintln!("Begin state: {:?}", begin_state);
+        // eprintln!("======================================================================");
+        // eprintln!("Begin state: {:?}", begin_state);
         let now = Instant::now();
         let mut best_moves = consolidate_moves(self.heuristic_algorithm.calculate(begin_state));
-        eprintln!("Initial moves: {:?}", best_moves);
+        // eprintln!("Initial moves: {:?}", best_moves);
         let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state).apply_expeditions(100);
         let mut best_score = get_score_state(self.me_id, &simulated_state);
         let mut iterations = 0;
 
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
             // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
-            let temp = neighbour(begin_state, &best_moves);
-
-            eprintln!("new moves before: {:?}", temp);
-            let new_moves = consolidate_moves(temp);
-            eprintln!("new moves after: {:?}", new_moves);
+            // eprintln!("new moves before: {:?}", temp);
+            let new_moves = neighbour(begin_state, &best_moves);
+            // eprintln!("new moves after: {:?}", new_moves);
 
             let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(100);
             let new_score = get_score_state(self.me_id, &simulated_state);
