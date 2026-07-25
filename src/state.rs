@@ -85,14 +85,17 @@ impl State {
                break;
            }
            for planet in &mut simulated_state.current_state.planets {
-               if planet.owner.is_none() {
+               // account for growth
+               if planet.owner.is_some() {
+                   planet.ship_count += delta;
+               }
+
+               // only apply expidition to destination planet
+               if planet.name != expedition.destination {
                    continue;
                }
 
-               // account for growth
-               planet.ship_count += delta;
-
-               if expedition.owner == planet.owner.unwrap() {
+               if Some(expedition.owner) == planet.owner {
                    planet.ship_count += expedition.ship_count;
                } else if expedition.ship_count > planet.ship_count {
                    planet.ship_count = expedition.ship_count - planet.ship_count;
@@ -103,8 +106,8 @@ impl State {
                } else {
                    planet.ship_count -= expedition.ship_count;
                }
-               turn = expedition.turns_remaining;
            }
+           turn = expedition.turns_remaining;
        }
 
        let delta = turns_lookahead - turn;
@@ -223,6 +226,53 @@ pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition]
     }
 
     ship_count_required_to_survive
+}
+
+#[cfg(test)]
+mod test {
+    use crate::data::{Expedition, Input, Planet};
+    use crate::state::State;
+
+    #[test]
+    fn apply_expeditions_only_affects_the_destination_planet() {
+        let input = Input {
+            planets: vec![
+                Planet { ship_count: 5, x: 0.0, y: 0.0, owner: Some(1), name: "a".to_string(), index: 0 },
+                Planet { ship_count: 1, x: 0.0, y: 0.0, owner: Some(1), name: "b".to_string(), index: 0 },
+            ],
+            expeditions: vec![
+                Expedition { id: 1, ship_count: 10, origin: "b".to_string(), destination: "b".to_string(), owner: 2, turns_remaining: 1 },
+            ],
+        };
+        let state = State::new(input);
+
+        let result = state.apply_expeditions(1);
+
+        // The enemy expedition only targets "b", so "a" must stay mine (plus one turn of growth).
+        let planet_a = result.current_state.planets.iter().find(|p| p.name == "a").unwrap();
+        assert_eq!(planet_a.owner, Some(1), "planet a was wrongly affected by an expedition aimed at b");
+        assert_eq!(planet_a.ship_count, 6, "planet a should have grown by one turn only");
+    }
+
+    #[test]
+    fn apply_expeditions_captures_neutral_planet() {
+        let input = Input {
+            planets: vec![
+                Planet { ship_count: 3, x: 0.0, y: 0.0, owner: None, name: "n".to_string(), index: 0 },
+            ],
+            expeditions: vec![
+                Expedition { id: 1, ship_count: 5, origin: "n".to_string(), destination: "n".to_string(), owner: 2, turns_remaining: 1 },
+            ],
+        };
+        let state = State::new(input);
+
+        let result = state.apply_expeditions(1);
+
+        // 5 attacking ships beat 3 neutral defenders, leaving player 2 owning it with 2 ships.
+        let planet = &result.current_state.planets[0];
+        assert_eq!(planet.owner, Some(2), "neutral planet should be captured by the attacker");
+        assert_eq!(planet.ship_count, 2, "captured planet keeps the surplus attacking ships");
+    }
 }
 
 pub fn simulate_expeditions_planet(expeditions: &[Expedition], planet: &Planet) -> (PlayerId, i64) {

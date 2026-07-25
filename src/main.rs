@@ -1,14 +1,9 @@
-mod algorithms;
-mod data;
-mod state;
-mod utils;
-
 use std::{io::{self, BufRead, Write}};
 
-use data::{Input, Output};
-use state::State;
+use RipleyPlanetWarsBot::data::{Input, Output};
+use RipleyPlanetWarsBot::state::State;
 
-use crate::data::ME_ID;
+use RipleyPlanetWarsBot::data::ME_ID;
 
 fn main() {
     let stdin = io::stdin();
@@ -18,7 +13,7 @@ fn main() {
     // let mut algorithm = algorithms::ripley::Ripley::new(ME_ID);
     //let mut algorithm = algorithms::simple::AlgorithmSimple::default();
     // let mut file = File::open("debug.jsonl").unwrap();
-    let mut algorithm = algorithms::ripley_greedy_optimization::RipleyGreedyOptimization::new(ME_ID);
+    let mut algorithm = RipleyPlanetWarsBot::algorithms::ripley_greedy_optimization::RipleyGreedyOptimization::new(ME_ID);
 
     for line in stdin.lock().lines() {
         //let now = Instant::now();
