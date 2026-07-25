@@ -1,6 +1,7 @@
 mod algorithms;
 mod data;
 mod state;
+mod utils;
 
 use std::{io::{self, BufRead, Write}};
 

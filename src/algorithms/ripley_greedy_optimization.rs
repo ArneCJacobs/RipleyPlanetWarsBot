@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::{
-    algorithms::ripley::Ripley, data::{MAX_DURATION, Move, PlayerId}, state::{State, apply_simulated_moves}
+    algorithms::ripley::Ripley, data::{MAX_DURATION, Move, PlayerId}, state::{State, apply_simulated_moves}, utils::consolidate_moves
 };
 use rand::{distr::{Distribution, weighted::WeightedIndex}, seq::IteratorRandom};
 
@@ -63,7 +63,7 @@ pub fn neighbour(
     // TODO: only ever take one ship? or at least a max amount
     // TODO: take into account the total amount of ships available, including those "in reserve" on
     // the planet
-    let ships = rand::random_range(..old_move.ship_count as u64);
+    let ships = rand::random_range(1..=old_move.ship_count as u64);
     // pick planet close to current destination
     let closest_planets = state.get_closest(old_target_id);
     // TODO: we could store weighed index so its not constructed each time
@@ -86,7 +86,6 @@ pub fn neighbour(
         ));
     }
 
-    
     old_move.ship_count -= ships as i64;
     if old_move.ship_count == 0 {
         neighbour_moves.remove(chosen_index);
@@ -96,38 +95,6 @@ pub fn neighbour(
 
     neighbour_moves 
 }
-
-fn consolidate_moves(mut moves: Vec<Move>) -> Vec<Move> {
-    moves.sort_unstable_by_key(|mv| (mv.origin.clone(), mv.destination.clone(), mv.ship_count));
-
-    let mut new_moves = Vec::new();
-    for (index, mv) in moves.iter().enumerate() {
-        let mut run_last_index = index + 1; 
-        for (other_index, other_mv) in moves.iter().enumerate().skip(index+1) {
-            if other_mv.origin != mv.origin || other_mv.destination != mv.destination {
-                run_last_index = other_index;
-                break;
-            }
-        };
-        if run_last_index == index + 1 {
-            new_moves.push(mv.clone());
-            continue;
-        }
-        let mv_agg = moves[index..run_last_index].iter().fold(
-            Move {
-                origin: mv.origin.clone(),
-                destination: mv.destination.clone(),
-                ship_count: 0,
-            }, 
-            |mut acc, mv| {
-            acc.ship_count += mv.ship_count;
-            acc
-        });
-        new_moves.push(mv_agg);
-    }
-    new_moves.into_iter().filter(|mv| mv.ship_count != 0).collect()
-}
-
 
 impl RipleyGreedyOptimization {
     pub fn new(me_id: PlayerId) -> Self {
@@ -149,8 +116,11 @@ impl RipleyGreedyOptimization {
 
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
             // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
-            let new_moves = consolidate_moves(neighbour(begin_state, &best_moves));
-            eprintln!("new moves: {:?}", new_moves);
+            let temp = neighbour(begin_state, &best_moves);
+
+            eprintln!("new moves before: {:?}", temp);
+            let new_moves = consolidate_moves(temp);
+            eprintln!("new moves after: {:?}", new_moves);
 
             let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(100);
             let new_score = get_score_state(self.me_id, &simulated_state);

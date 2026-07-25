@@ -79,7 +79,7 @@ pub struct Output {
     pub moves: Vec<Move>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Move {
     pub origin: PlanetName,
     pub destination: PlanetName,
