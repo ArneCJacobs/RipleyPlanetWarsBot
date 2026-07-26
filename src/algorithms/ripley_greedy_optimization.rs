@@ -7,6 +7,10 @@ use rand::{RngExt, SeedableRng, distr::{Distribution, weighted::WeightedIndex}, 
 use std::sync::{LazyLock, Mutex};
 
 const MAX_ITERATIONS: u64 = 600;
+// simulated annealing temperature schedule: start hot enough to cross the score barriers of a
+// half-built capture, cool geometrically so T_0 reaches ~0.5 over MAX_ITERATIONS steps
+const INITIAL_TEMPERATURE: f64 = 30.0;
+const COOLING_RATE: f64 = 0.993;
 // long-term worth of owning a planet, replacing the growth of a long unopposed lookahead
 const PLANET_VALUE: f64 = 50.0;
 // weight of the exposure penalty: how much an under-defended planet counts against us
@@ -166,21 +170,38 @@ impl RipleyGreedyOptimization {
 
         // eprintln!("Initial moves: {:?}", best_moves);
         let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).apply_expeditions(horizon);
-        let mut best_score = get_score_state(self.me_id, &simulated_state);
+        let initial_score = get_score_state(self.me_id, &simulated_state);
+
+        // simulated annealing: `current` wanders (accepting worse moves so captures can be built up
+        // across a valley of worse intermediate states), while `best` records the best seen and is
+        // what we return.
+        let mut current_moves = best_moves.clone();
+        let mut current_score = initial_score;
+        let mut best_score = initial_score;
+        let mut temperature = INITIAL_TEMPERATURE;
         let mut iterations = 0;
 
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
-            // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
-            // eprintln!("new moves before: {:?}", temp);
-            let new_moves = neighbour(begin_state, &best_moves);
-            // eprintln!("new moves after: {:?}", new_moves);
+            let new_moves = neighbour(begin_state, &current_moves);
 
             let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state.clone()).apply_expeditions(horizon);
             let new_score = get_score_state(self.me_id, &simulated_state);
-            if new_score < best_score {
-                best_score = new_score;
-                best_moves = new_moves;
+            let delta = new_score - current_score;
+
+            let accept = delta < 0.0 || {
+                let mut rng = RNG.lock().unwrap();
+                rng.random_range(0.0..1.0) < (-delta / temperature).exp()
+            };
+            if accept {
+                if new_score < best_score {
+                    best_score = new_score;
+                    best_moves = new_moves.clone();
+                }
+                current_moves = new_moves;
+                current_score = new_score;
             }
+
+            temperature *= COOLING_RATE;
             iterations += 1;
         }
 
