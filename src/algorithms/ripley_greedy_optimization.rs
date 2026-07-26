@@ -11,6 +11,9 @@ const MAX_ITERATIONS: u64 = 600;
 // half-built capture, cool geometrically so T_0 reaches ~0.5 over MAX_ITERATIONS steps
 const INITIAL_TEMPERATURE: f64 = 30.0;
 const COOLING_RATE: f64 = 0.993;
+// neighbour concentration: chance to relocate a whole move, and to redirect onto an existing target
+const WHOLE_MOVE_PROB: f64 = 0.7;
+const REINFORCE_PROB: f64 = 0.5;
 // long-term worth of owning a planet, replacing the growth of a long unopposed lookahead
 const PLANET_VALUE: f64 = 50.0;
 // weight of the exposure penalty: how much an under-defended planet counts against us
@@ -90,16 +93,33 @@ pub fn neighbour(
     let chosen_index = rng.random_range(..neighbour_moves.len());
     let mut old_move = neighbour_moves[chosen_index].clone();
     let old_target_id = state.planet_map[&old_move.destination];
-    // TODO: only ever take one ship? or at least a max amount
-    let ships = rng.random_range(1..=old_move.ship_count as u64);
-    // pick planet close to current destination
-    let closest_planets = state.get_closest(old_target_id);
-    // TODO: we could store weighed index so its not constructed each time
-    // TODO: instead of only taking distance into account, we could also use static defence-ability
-    let max_weight = closest_planets.last().unwrap().0;
-    let min_weight = closest_planets[1].0;
-    let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d.max(min_weight)+min_weight)).unwrap();
-    let (_, new_target_id) = closest_planets[dist.sample(&mut *rng)];
+
+    // usually relocate the whole blob so concentration is preserved; occasionally split to explore
+    let ships = if rng.random_range(0.0..1.0) < WHOLE_MOVE_PROB {
+        old_move.ship_count as u64
+    } else {
+        rng.random_range(1..=old_move.ship_count as u64)
+    };
+
+    // bias the destination toward a planet already targeted so ships pile up (same-origin moves get
+    // consolidated, different-origin moves are summed by the sim); otherwise a nearby planet
+    let existing_targets: Vec<usize> = neighbour_moves
+        .iter()
+        .filter(|mv| mv.origin != mv.destination)
+        .map(|mv| state.planet_map[&mv.destination])
+        .filter(|&id| id != old_target_id)
+        .collect();
+
+    let new_target_id = if !existing_targets.is_empty() && rng.random_range(0.0..1.0) < REINFORCE_PROB {
+        existing_targets[rng.random_range(..existing_targets.len())]
+    } else {
+        // pick planet close to current destination
+        let closest_planets = state.get_closest(old_target_id);
+        let max_weight = closest_planets.last().unwrap().0;
+        let min_weight = closest_planets[1].0;
+        let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d.max(min_weight)+min_weight)).unwrap();
+        closest_planets[dist.sample(&mut *rng)].1
+    };
 
     let destination = state.current_state.planets[new_target_id].name.clone();
     neighbour_moves.push(Move::new(
@@ -171,6 +191,7 @@ impl RipleyGreedyOptimization {
         // eprintln!("Initial moves: {:?}", best_moves);
         let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).apply_expeditions(horizon);
         let initial_score = get_score_state(self.me_id, &simulated_state);
+        let seed_owned = simulated_state.current_state.planets.iter().filter(|p| p.owner == Some(self.me_id)).count();
 
         // simulated annealing: `current` wanders (accepting worse moves so captures can be built up
         // across a valley of worse intermediate states), while `best` records the best seen and is
@@ -180,6 +201,7 @@ impl RipleyGreedyOptimization {
         let mut best_score = initial_score;
         let mut temperature = INITIAL_TEMPERATURE;
         let mut iterations = 0;
+        let mut accepts = 0;
 
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
             let new_moves = neighbour(begin_state, &current_moves);
@@ -193,6 +215,7 @@ impl RipleyGreedyOptimization {
                 rng.random_range(0.0..1.0) < (-delta / temperature).exp()
             };
             if accept {
+                accepts += 1;
                 if new_score < best_score {
                     best_score = new_score;
                     best_moves = new_moves.clone();
@@ -204,6 +227,13 @@ impl RipleyGreedyOptimization {
             temperature *= COOLING_RATE;
             iterations += 1;
         }
+
+        let best_sim = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).apply_expeditions(horizon);
+        let best_owned = best_sim.current_state.planets.iter().filter(|p| p.owner == Some(self.me_id)).count();
+        eprintln!(
+            "turn={} iters={} accepts={} seed_score={:.1} best_score={:.1} seed_owned={} best_owned={} horizon={}",
+            begin_state.turn, iterations, accepts, initial_score, best_score, seed_owned, best_owned, horizon
+        );
 
         // eprintln!("moves: {:?}", best_moves);
         let elapsed = now.elapsed();
