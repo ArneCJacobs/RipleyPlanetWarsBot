@@ -1,7 +1,7 @@
-use std::{collections::BTreeMap, time::Instant};
+use std::{collections::{BTreeMap, HashSet}, time::Instant};
 
 use crate::{
-    algorithms::ripley::Ripley, data::{MAX_DURATION, Move, PlayerId}, state::{State, apply_simulated_moves}, utils::consolidate_moves
+    algorithms::ripley::Ripley, data::{MAX_DURATION, Move, PlayerId}, score::get_score_state, state::{State, apply_simulated_moves}, utils::consolidate_moves
 };
 use rand::{RngExt, SeedableRng, distr::{Distribution, weighted::WeightedIndex}, rngs::StdRng, seq::IteratorRandom};
 use std::sync::{LazyLock, Mutex};
@@ -11,14 +11,8 @@ const MAX_ITERATIONS: u64 = 1000;
 // half-built capture, cool geometrically so T_0 reaches ~0.5 over MAX_ITERATIONS steps
 const INITIAL_TEMPERATURE: f64 = 30.0;
 const COOLING_RATE: f64 = 0.993;
-// neighbour concentration: chance to relocate a whole move, and to redirect onto an existing target
+// neighbour concentration: chance to relocate a whole move rather than a random fraction
 const WHOLE_MOVE_PROB: f64 = 0.7;
-// const REINFORCE_PROB: f64 = 0.5;
-const REINFORCE_PROB: f64 = 0.0;
-// long-term worth of owning a planet, replacing the growth of a long unopposed lookahead
-const PLANET_VALUE: f64 = 50.0;
-// weight of the exposure penalty: how much an under-defended planet counts against us
-const EXPOSURE_FACTOR: f64 = 1.0;
 // upper bound on the lookahead derived from the map diameter
 const MAX_HORIZON: i64 = 100;
 const RNG_SEED: u64 = 42;
@@ -29,71 +23,38 @@ pub struct RipleyGreedyOptimization {
     heuristic_algorithm: Ripley
 }
 
-/// This function calculates 2 score functions:
-/// 1. total scip score (sum of all enemy ships - sum of al allied ships)
-/// 2. dynamic defence-ability:
-///    sum over all planets p =>
-///        sum over all allied planets pi of (|distance(p, pi)| - pi.ships) 
-///        plus sum over all enemy planet pi of (pi.ships - |distance(p, pi)|)
-pub fn get_score_state(
-    me_id: PlayerId,
-    state: &State,
-) -> f64 {
-    // lower better
-    let mut score = 0.0;
-    for planet in &state.current_state.planets {
-        match planet.owner {
-            Some(owner) if owner == me_id => {
-                score -= PLANET_VALUE + planet.ship_count as f64;
 
-                // exposure: enemy force that can reach this planet faster than we grow to meet it.
-                // An enemy S ships, T turns away lands with the planet only T ships stronger, so the
-                // effective pressure is S - T; summed over enemies and offset by our garrison.
-                let mut threat = 0.0;
-                for other in &state.current_state.planets {
-                    if other.owner.is_some() && other.owner != Some(me_id) {
-                        let travel = planet.distance(other).ceil() as f64;
-                        threat += (other.ship_count as f64 - travel).max(0.0);
-                    }
-                }
-                let shortfall = (threat - planet.ship_count as f64).max(0.0);
-                score += EXPOSURE_FACTOR * shortfall;
-            }
-            Some(_) => score += PLANET_VALUE,
-            None => {} // neutral planets are not the enemy, so they do not count
-        }
 
-        // for other_planet in &state.current_state.planets {
-        //     match other_planet.owner {
-        //         None => continue,
-        //         Some(x) if x == me_id => {
-        //             score += planet.distance(other_planet).ceil() as f64 - other_planet.ship_count as f64;
-        //         },
-        //         Some(_) => {
-        //             score -= planet.distance(other_planet).ceil() as f64 - other_planet.ship_count as f64;
-        //         }
-        //     }
-        // }
-    }
-
-    score
+/// Returns the mutated move set together with the number of turns the newly added move takes to
+/// reach its destination (its expedition's travel time), so the scorer knows when to inject the
+/// next simulated move.
+/// Static lookahead horizon: the ceil of the map diameter, capped. Depends only on planet
+/// positions (which never change), so the score does not depend on the in-flight expeditions.
+pub fn map_horizon(state: &State) -> i64 {
+    let planets = &state.current_state.planets;
+    let min_x = planets.iter().min_by(|a, b| a.x.partial_cmp(&b.x).unwrap()).unwrap();
+    let max_x = planets.iter().max_by(|a, b| a.x.partial_cmp(&b.x).unwrap()).unwrap();
+    let min_y = planets.iter().min_by(|a, b| a.y.partial_cmp(&b.y).unwrap()).unwrap();
+    let max_y = planets.iter().max_by(|a, b| a.y.partial_cmp(&b.y).unwrap()).unwrap();
+    let diameter = min_x.distance(max_x).max(min_y.distance(max_y));
+    (diameter.ceil() as i64).min(MAX_HORIZON)
 }
-
 
 pub fn neighbour(
     state: &State,
     moves: &Vec<Move>,
-) -> Vec<Move> {
+) -> (Vec<Move>, i64) {
     let mut neighbour_moves = moves.clone();
 
     if neighbour_moves.is_empty() {
-        return vec![];
+        return (vec![], 0);
     }
 
     let mut rng = RNG.lock().unwrap();
     let chosen_index = rng.random_range(..neighbour_moves.len());
     let mut old_move = neighbour_moves[chosen_index].clone();
     let old_target_id = state.planet_map[&old_move.destination];
+    let origin_id = state.planet_map[&old_move.origin];
 
     // usually relocate the whole blob so concentration is preserved; occasionally split to explore
     let ships = if rng.random_range(0.0..1.0) < WHOLE_MOVE_PROB {
@@ -102,25 +63,34 @@ pub fn neighbour(
         rng.random_range(1..=old_move.ship_count as u64)
     };
 
-    // bias the destination toward a planet already targeted so ships pile up (same-origin moves get
-    // consolidated, different-origin moves are summed by the sim); otherwise a nearby planet
-    let existing_targets: Vec<usize> = neighbour_moves
+    // planets this origin already sends to, used to bias the choice toward consolidation
+    let same_origin_targets: HashSet<usize> = neighbour_moves
         .iter()
-        .filter(|mv| mv.origin != mv.destination)
+        .filter(|mv| mv.origin == old_move.origin)
         .map(|mv| state.planet_map[&mv.destination])
-        .filter(|&id| id != old_target_id)
         .collect();
 
-    let new_target_id = if !existing_targets.is_empty() && rng.random_range(0.0..1.0) < REINFORCE_PROB {
-        existing_targets[rng.random_range(..existing_targets.len())]
-    } else {
-        // pick planet close to current destination
-        let closest_planets = state.get_closest(old_target_id);
-        let max_weight = closest_planets.last().unwrap().0;
-        let min_weight = closest_planets[1].0;
-        let dist = WeightedIndex::new(closest_planets.iter().map(|(d, _)| max_weight-d.max(min_weight)+min_weight)).unwrap();
-        closest_planets[dist.sample(&mut *rng)].1
-    };
+    // choose the destination by weight over candidate planets. The weight combines:
+    //  - distance to the old target (nearer scores higher), with a hold (redirect back to origin)
+    //    scored as high as the nearest neighbour
+    //  - a bonus for planets this origin already sends to
+    let closest_planets = state.get_closest(old_target_id);
+    let max_weight = closest_planets.last().unwrap().0;
+    let min_weight = closest_planets[1].0;
+    let weights = closest_planets.iter().map(|(distance, id)| {
+        let distance_weight = if *id == origin_id {
+            max_weight
+        } else {
+            max_weight - distance.max(min_weight) + min_weight
+        };
+        let reinforce_weight = if same_origin_targets.contains(id) { max_weight } else { 0.0 };
+        distance_weight + reinforce_weight
+    });
+    let new_target_id = closest_planets[WeightedIndex::new(weights).unwrap().sample(&mut *rng)].1;
+
+    let arrival = state.current_state.planets[origin_id]
+        .distance(&state.current_state.planets[new_target_id])
+        .ceil() as i64;
 
     let destination = state.current_state.planets[new_target_id].name.clone();
     neighbour_moves.push(Move::new(
@@ -136,7 +106,7 @@ pub fn neighbour(
         neighbour_moves[chosen_index] = old_move;
     }
 
-    consolidate_moves(neighbour_moves)
+    (consolidate_moves(neighbour_moves), arrival)
 }
 
 pub fn add_loopback_moves(player_id: PlayerId, begin_state: &State, best_moves: &mut Vec<Move>) {
@@ -170,6 +140,26 @@ impl RipleyGreedyOptimization {
         }
     }
 
+    /// Scores a candidate by simulating our own continued play into the future: apply the moves,
+    /// advance to the new move's arrival, let Ripley pick our next move, advance 5 turns, let Ripley
+    /// move again, then coast to the horizon and score. `arrival` is clamped so both follow-up
+    /// stages fit inside the horizon.
+    /// TODO: only our side is simulated here; test simulating the opponent's replies too.
+    pub fn score_candidate(&mut self, begin_state: &State, moves: &Vec<Move>, arrival: i64, horizon: i64) -> f64 {
+        let arrival = arrival.clamp(0, (horizon - 5).max(0));
+        let mut state = apply_simulated_moves(self.me_id, moves, begin_state.clone()).advance(arrival);
+
+        // our-side rollout: our follow-up moves via Ripley, then coast to the horizon.
+        // A full two-sided rollout (opponent also playing to the horizon) was tried and washed out
+        // the candidate move's signal, causing under-expansion; see git history.
+        let our_move = self.heuristic_algorithm.calculate(&state);
+        state = apply_simulated_moves(self.me_id, &our_move, state).advance(5);
+        let our_move = self.heuristic_algorithm.calculate(&state);
+        state = apply_simulated_moves(self.me_id, &our_move, state).advance((horizon - arrival - 5).max(0));
+
+        get_score_state(self.me_id, &state)
+    }
+
     pub fn calculate(&mut self, begin_state: &State) -> Vec<Move> {
         // eprintln!("======================================================================");
         // eprintln!("Begin state: {:?}", begin_state);
@@ -178,21 +168,12 @@ impl RipleyGreedyOptimization {
 
         add_loopback_moves(self.me_id, begin_state, &mut best_moves);
 
-        // static horizon: the ceil of the map diameter, capped, so the score does not depend on
-        // the in-flight expeditions. The diameter is approximated by the planets furthest apart in
-        // x and in y (whichever pair spans more), since planet positions never change.
-        let planets = &begin_state.current_state.planets;
-        let min_x = planets.iter().min_by(|a, b| a.x.partial_cmp(&b.x).unwrap()).unwrap();
-        let max_x = planets.iter().max_by(|a, b| a.x.partial_cmp(&b.x).unwrap()).unwrap();
-        let min_y = planets.iter().min_by(|a, b| a.y.partial_cmp(&b.y).unwrap()).unwrap();
-        let max_y = planets.iter().max_by(|a, b| a.y.partial_cmp(&b.y).unwrap()).unwrap();
-        let diameter = min_x.distance(max_x).max(min_y.distance(max_y));
-        let horizon = (diameter.ceil() as i64).min(MAX_HORIZON);
+        let horizon = map_horizon(begin_state);
 
         // eprintln!("Initial moves: {:?}", best_moves);
-        let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).apply_expeditions(horizon);
-        let initial_score = get_score_state(self.me_id, &simulated_state);
-        let seed_owned = simulated_state.current_state.planets.iter().filter(|p| p.owner == Some(self.me_id)).count();
+        let initial_score = self.score_candidate(begin_state, &best_moves, 0, horizon);
+        let seed_owned = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).advance(horizon)
+            .current_state.planets.iter().filter(|p| p.owner == Some(self.me_id)).count();
 
         // simulated annealing: `current` wanders (accepting worse moves so captures can be built up
         // across a valley of worse intermediate states), while `best` records the best seen and is
@@ -205,10 +186,9 @@ impl RipleyGreedyOptimization {
         let mut accepts = 0;
 
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
-            let new_moves = neighbour(begin_state, &current_moves);
+            let (new_moves, arrival) = neighbour(begin_state, &current_moves);
 
-            let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state.clone()).apply_expeditions(horizon);
-            let new_score = get_score_state(self.me_id, &simulated_state);
+            let new_score = self.score_candidate(begin_state, &new_moves, arrival, horizon);
             let delta = new_score - current_score;
 
             let accept = delta < 0.0 || {
@@ -229,7 +209,7 @@ impl RipleyGreedyOptimization {
             iterations += 1;
         }
 
-        let best_sim = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).apply_expeditions(horizon);
+        let best_sim = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).advance(horizon);
         let best_owned = best_sim.current_state.planets.iter().filter(|p| p.owner == Some(self.me_id)).count();
         eprintln!(
             "turn={} iters={} accepts={} seed_score={:.1} best_score={:.1} seed_owned={} best_owned={} horizon={}",

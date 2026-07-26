@@ -115,12 +115,67 @@ impl State {
            for planet in &mut simulated_state.current_state.planets {
                if planet.owner.is_none() {
                    continue
-               } 
+               }
                planet.ship_count += delta;
            }
        }
 
        simulated_state
+    }
+
+    /// Advance the simulation by `turns`: resolve the expeditions that arrive within that window
+    /// (removing them), decrement the turns_remaining of the rest, and grow owned planets over the
+    /// elapsed time. Unlike `apply_expeditions` this consumes arrived expeditions, so it can be
+    /// chained to simulate several stages in a row.
+    pub fn advance(self, turns: i64) -> State {
+        let mut simulated_state = self;
+        let mut expeditions = std::mem::take(&mut simulated_state.current_state.expeditions);
+        expeditions.sort_unstable_by_key(|expedition| expedition.turns_remaining);
+
+        let mut turn = 0;
+        let mut remaining = Vec::new();
+        for mut expedition in expeditions {
+            if expedition.turns_remaining > turns {
+                // not arrived within the window: keep it, shifted back in time
+                expedition.turns_remaining -= turns;
+                remaining.push(expedition);
+                continue;
+            }
+
+            let delta = expedition.turns_remaining - turn;
+            for planet in &mut simulated_state.current_state.planets {
+                if planet.owner.is_some() {
+                    planet.ship_count += delta;
+                }
+                if planet.name != expedition.destination {
+                    continue;
+                }
+                if Some(expedition.owner) == planet.owner {
+                    planet.ship_count += expedition.ship_count;
+                } else if expedition.ship_count > planet.ship_count {
+                    planet.ship_count = expedition.ship_count - planet.ship_count;
+                    planet.owner = Some(expedition.owner);
+                } else if expedition.ship_count == planet.ship_count {
+                    planet.ship_count = 0;
+                    planet.owner = None;
+                } else {
+                    planet.ship_count -= expedition.ship_count;
+                }
+            }
+            turn = expedition.turns_remaining;
+        }
+
+        let delta = turns - turn;
+        if delta > 0 {
+            for planet in &mut simulated_state.current_state.planets {
+                if planet.owner.is_some() {
+                    planet.ship_count += delta;
+                }
+            }
+        }
+
+        simulated_state.current_state.expeditions = remaining;
+        simulated_state
     }
 
     pub fn get_closest(
