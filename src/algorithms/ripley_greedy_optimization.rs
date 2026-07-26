@@ -1,14 +1,12 @@
 use std::{collections::BTreeMap, time::Instant};
 
 use crate::{
-    algorithms::ripley::Ripley, data::{MAX_DURATION, Move, Planet, PlayerId}, state::{State, apply_simulated_moves, simulate_expeditions_planet, simulate_expeditions_required_ships_to_survive}, utils::consolidate_moves
+    algorithms::ripley::Ripley, data::{MAX_DURATION, Move, PlayerId}, state::{State, apply_simulated_moves}, utils::consolidate_moves
 };
 use rand::{RngExt, SeedableRng, distr::{Distribution, weighted::WeightedIndex}, rngs::StdRng, seq::IteratorRandom};
 use std::sync::{LazyLock, Mutex};
 
 const MAX_ITERATIONS: u64 = 600;
-// how often the search proposes a full capture instead of a local mutation, as a percentage
-const CAPTURE_PERCENT: u32 = 20;
 // long-term worth of owning a planet, replacing the growth of a long unopposed lookahead
 const PLANET_VALUE: f64 = 50.0;
 // weight of the exposure penalty: how much an under-defended planet counts against us
@@ -116,68 +114,6 @@ pub fn neighbour(
     consolidate_moves(neighbour_moves)
 }
 
-/// Proposes a concentrated strike: pick a planet we do not own, estimate the ships needed to take
-/// it once the in-flight expeditions resolve, and gather that many ships from our nearest planets
-/// with surplus (each keeping its survival garrison). Returns a full, valid move set; if the target
-/// cannot be afforded this turn the strike is dropped and every planet just reserves.
-pub fn capture_proposal(me_id: PlayerId, state: &State) -> Vec<Move> {
-    let planets = &state.current_state.planets;
-
-    let targets: Vec<&Planet> = planets.iter().filter(|planet| planet.owner != Some(me_id)).collect();
-    if targets.is_empty() {
-        return vec![];
-    }
-    let my_planets: Vec<&Planet> = planets.iter().filter(|planet| planet.owner == Some(me_id)).collect();
-
-    let target = {
-        let mut rng = RNG.lock().unwrap();
-        if my_planets.is_empty() {
-            targets[rng.random_range(..targets.len())]
-        } else {
-            // weight targets by proximity to our nearest planet, so we consolidate the home cluster
-            // first instead of sailing across the map; still randomized to keep exploring
-            let weights = targets.iter().map(|target| {
-                let nearest = my_planets.iter().map(|mine| target.distance(mine)).fold(f32::INFINITY, f32::min);
-                1.0 / (nearest as f64 + 1.0)
-            });
-            targets[WeightedIndex::new(weights).unwrap().sample(&mut *rng)]
-        }
-    };
-
-    let (projected_owner, projected_ships) = simulate_expeditions_planet(&state.current_state.expeditions, target);
-    let mut needed = if projected_owner == me_id { 0 } else { projected_ships + 1 };
-
-    // get_closest is sorted nearest-first; keep our own planets in that order
-    let target_id = state.planet_map[&target.name];
-    let closest = state.get_closest(target_id);
-
-    let mut moves = vec![];
-    for &(_, source_id) in closest.iter() {
-        if needed == 0 {
-            break;
-        }
-        let source = &planets[source_id];
-        if source.owner != Some(me_id) {
-            continue;
-        }
-        let reserve = simulate_expeditions_required_ships_to_survive(&state.current_state.expeditions, source);
-        let surplus = (source.ship_count - reserve).max(0);
-        let contribution = surplus.min(needed);
-        if contribution > 0 {
-            moves.push(Move::new(source.name.clone(), target.name.clone(), contribution));
-            needed -= contribution;
-        }
-    }
-
-    // could not muster enough force: drop the strike and just hold
-    if needed > 0 {
-        moves.clear();
-    }
-
-    add_loopback_moves(me_id, state, &mut moves);
-    consolidate_moves(moves)
-}
-
 pub fn add_loopback_moves(player_id: PlayerId, begin_state: &State, best_moves: &mut Vec<Move>) {
     let mut temp_map: BTreeMap<String, i64> = BTreeMap::new();
     for planet in &begin_state.current_state.planets {
@@ -236,15 +172,7 @@ impl RipleyGreedyOptimization {
         while now.elapsed().as_millis() < MAX_DURATION.into() && iterations < MAX_ITERATIONS {
             // eprintln!("{:.2?}, {}", now.elapsed().as_millis(), iterations);
             // eprintln!("new moves before: {:?}", temp);
-            let use_capture = {
-                let mut rng = RNG.lock().unwrap();
-                rng.random_range(0..100) < CAPTURE_PERCENT
-            };
-            let new_moves = if use_capture {
-                capture_proposal(self.me_id, begin_state)
-            } else {
-                neighbour(begin_state, &best_moves)
-            };
+            let new_moves = neighbour(begin_state, &best_moves);
             // eprintln!("new moves after: {:?}", new_moves);
 
             let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state.clone()).apply_expeditions(horizon);
