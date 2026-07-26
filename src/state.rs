@@ -70,10 +70,10 @@ impl State {
     /// important to have a set turns_remaining otherwise the amount of turns you look into the
     /// future depends solely on the expeditions and the scoring might differ greatly
     pub fn apply_expeditions(
-        &self,
+        self,
         turns_lookahead: i64,
     ) -> State {
-       let mut simulated_state = self.clone();
+       let mut simulated_state = self;
 
        let expeditions = &mut simulated_state.current_state.expeditions;
        expeditions.sort_unstable_by_key(|expidition| expidition.turns_remaining);
@@ -154,13 +154,11 @@ impl State {
 pub fn apply_simulated_moves(
     owner_id: PlayerId,
     simulated_moves: &Vec<Move>,
-    state: &State,
+    mut state: State,
 ) -> State {
-    let mut simulated_state = state.clone(); 
-
     for player_move in simulated_moves {
         {
-            let planet_origin = &mut simulated_state.current_state.planets[state.planet_map[&player_move.origin]];
+            let planet_origin = &mut state.current_state.planets[state.planet_map[&player_move.origin]];
             if planet_origin.owner != Some(owner_id) {
                 panic!("Trying to send an expeidition from a planet you do not own: owner: {owner_id}, planet: {planet_origin:?}")
             }
@@ -174,10 +172,10 @@ pub fn apply_simulated_moves(
             }
             planet_origin.ship_count -= player_move.ship_count;
         }
-        let planet_origin = &simulated_state.current_state.planets[state.planet_map[&player_move.origin]];
-        let planet_destination = &simulated_state.current_state.planets[state.planet_map[&player_move.destination]];
+        let planet_origin = &state.current_state.planets[state.planet_map[&player_move.origin]];
+        let planet_destination = &state.current_state.planets[state.planet_map[&player_move.destination]];
         let distance = planet_origin.distance(planet_destination).ceil() as i64;
-        simulated_state.current_state.expeditions.push(Expedition{
+        state.current_state.expeditions.push(Expedition{
             id: 1235,
             ship_count: player_move.ship_count,
             origin: player_move.origin.clone(),
@@ -188,7 +186,7 @@ pub fn apply_simulated_moves(
     }
 
 
-    simulated_state
+    state
 }
 
 pub fn simulate_expeditions_required_ships_to_survive(expeditions: &[Expedition], planet: &Planet) -> i64 {

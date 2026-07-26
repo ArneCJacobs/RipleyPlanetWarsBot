@@ -7,7 +7,7 @@ use RipleyPlanetWarsBot::{
 
 fn duteros_fate(label: &str, state: &State, moves: &Vec<Move>) {
     // apply the moves to produce the resulting expedition set, then run the single-planet oracle
-    let after_moves = apply_simulated_moves(ME_ID, moves, state);
+    let after_moves = apply_simulated_moves(ME_ID, moves, state.clone());
     let duteros = after_moves.current_state.planets.iter().find(|p| p.name == "duteros").unwrap();
     let (owner, ships) = simulate_expeditions_planet(&after_moves.current_state.expeditions, duteros);
     eprintln!("{label}: duteros ends owner={owner} ships={ships}");

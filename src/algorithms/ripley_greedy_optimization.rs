@@ -34,7 +34,7 @@ pub fn get_score_state(
     for planet in &state.current_state.planets {
         match planet.owner {
             Some(owner) if owner == me_id => score -= PLANET_VALUE + planet.ship_count as f64,
-            Some(_) => score += PLANET_VALUE + planet.ship_count as f64,
+            Some(_) => score += PLANET_VALUE,
             None => {} // neutral planets are not the enemy, so they do not count
         }
 
@@ -148,7 +148,7 @@ impl RipleyGreedyOptimization {
         let horizon = (diameter.ceil() as i64).min(MAX_HORIZON);
 
         // eprintln!("Initial moves: {:?}", best_moves);
-        let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state).apply_expeditions(horizon);
+        let simulated_state = apply_simulated_moves(self.me_id, &best_moves, begin_state.clone()).apply_expeditions(horizon);
         let mut best_score = get_score_state(self.me_id, &simulated_state);
         let mut iterations = 0;
 
@@ -158,7 +158,7 @@ impl RipleyGreedyOptimization {
             let new_moves = neighbour(begin_state, &best_moves);
             // eprintln!("new moves after: {:?}", new_moves);
 
-            let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state).apply_expeditions(horizon);
+            let simulated_state = apply_simulated_moves(self.me_id, &new_moves, begin_state.clone()).apply_expeditions(horizon);
             let new_score = get_score_state(self.me_id, &simulated_state);
             if new_score < best_score {
                 best_score = new_score;
