@@ -6,14 +6,15 @@ use crate::{
 use rand::{RngExt, SeedableRng, distr::{Distribution, weighted::WeightedIndex}, rngs::StdRng, seq::IteratorRandom};
 use std::sync::{LazyLock, Mutex};
 
-const MAX_ITERATIONS: u64 = 600;
+const MAX_ITERATIONS: u64 = 1000;
 // simulated annealing temperature schedule: start hot enough to cross the score barriers of a
 // half-built capture, cool geometrically so T_0 reaches ~0.5 over MAX_ITERATIONS steps
 const INITIAL_TEMPERATURE: f64 = 30.0;
 const COOLING_RATE: f64 = 0.993;
 // neighbour concentration: chance to relocate a whole move, and to redirect onto an existing target
 const WHOLE_MOVE_PROB: f64 = 0.7;
-const REINFORCE_PROB: f64 = 0.5;
+// const REINFORCE_PROB: f64 = 0.5;
+const REINFORCE_PROB: f64 = 0.0;
 // long-term worth of owning a planet, replacing the growth of a long unopposed lookahead
 const PLANET_VALUE: f64 = 50.0;
 // weight of the exposure penalty: how much an under-defended planet counts against us
