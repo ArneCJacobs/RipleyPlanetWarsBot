@@ -34,3 +34,7 @@ https://planetwars.zeus.gent/matches?before=2025-05-18T15%3A24%3A04.761857
 https://mattermost.zeus.gent/zeus/channels/planetwars
 
 
+future research:
+- https://web.archive.org/web/20110724100751/http://csclub.uwaterloo.ca/contest/rankings.php
+- http://quotenil.com/Planet-Wars-Post-Mortem.html
+- https://github.com/melisgl/planet-wars/tree/master
